@@ -132,6 +132,27 @@ export interface Team {
   photo?: string;
 }
 
+export type SuggestionType = 'module_status' | 'module_observation' | 'module_add' | 'module_edit' | 'full_training' | 'general';
+export type SuggestionStatus = 'pending' | 'approved' | 'rejected';
+
+export interface TrainingSuggestion {
+  id: string;
+  teamId: string;
+  trainingId: string;
+  trainingName: string;
+  auxiliaryName: string;
+  type: SuggestionType;
+  description: string;
+  proposedChange?: {
+    moduleId?: string;
+    editedModule?: Partial<TrainingModule>;
+    newModule?: TrainingModule;
+    newTraining?: Omit<Training, 'id'>;
+  };
+  status: SuggestionStatus;
+  createdAt: string;
+}
+
 export interface AppData {
   teams: Team[];
   athletes: Athlete[];
@@ -142,6 +163,7 @@ export interface AppData {
   evalTests: EvalTest[];
   evalResults: EvalResult[];
   activeTeamId: string;
+  trainingSuggestions: TrainingSuggestion[];
 }
 
 export const MODULE_TYPE_LABELS: Record<ModuleType, string> = {
@@ -244,4 +266,30 @@ export function getAthleteAttributeScore(
 
   if (testScores.length === 0) return 0;
   return Math.round((testScores.reduce((s, v) => s + v, 0) / testScores.length) * 10) / 10;
+}
+
+// Helper: get the last evaluation date for an athlete's attribute
+export function getAthleteAttributeLastDate(
+  athleteId: string,
+  attribute: string,
+  evalTests: EvalTest[],
+  evalResults: EvalResult[]
+): string | null {
+  const testsForAttr = evalTests.filter(t => t.attribute === attribute);
+  if (testsForAttr.length === 0) return null;
+
+  const athleteResults = evalResults.filter(r => r.athleteId === athleteId);
+  let latestDate: string | null = null;
+
+  for (const test of testsForAttr) {
+    const results = athleteResults.filter(r => r.testId === test.id);
+    if (results.length > 0) {
+      const sorted = results.sort((a, b) => b.date.localeCompare(a.date));
+      if (!latestDate || sorted[0].date > latestDate) {
+        latestDate = sorted[0].date;
+      }
+    }
+  }
+
+  return latestDate;
 }

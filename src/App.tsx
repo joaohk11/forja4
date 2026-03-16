@@ -20,6 +20,8 @@ import EvaluationsPage from "./pages/EvaluationsPage";
 import AthleteProfilePage from "./pages/AthleteProfilePage";
 import TacticalSystemPage from "./pages/TacticalSystemPage";
 import AICoachPage from "./pages/AICoachPage";
+import SuggestionsPage from "./pages/SuggestionsPage";
+import AuxiliaryPage from "./pages/AuxiliaryPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,27 +32,36 @@ const App = () => (
       <Sonner />
       <AppProvider>
         <BrowserRouter>
-          <AppLayout>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/calendario" element={<CalendarPage />} />
-              <Route path="/atletas" element={<AthletesPage />} />
-              <Route path="/criar-treino" element={<CreateTrainingPage />} />
-              <Route path="/treino/:id" element={<TrainingDetailPage />} />
-              <Route path="/treino-hoje" element={<TodayTrainingPage />} />
-              <Route path="/proximo-treino" element={<NextTrainingPage />} />
-              <Route path="/periodizacao" element={<PeriodizationPage />} />
-              <Route path="/historico" element={<HistoryPage />} />
-              <Route path="/backup" element={<BackupPage />} />
-              <Route path="/criar-ciclo" element={<CreateCyclePage />} />
-              <Route path="/time/:id" element={<TeamProfilePage />} />
-              <Route path="/avaliacoes" element={<EvaluationsPage />} />
-              <Route path="/atleta/:id" element={<AthleteProfilePage />} />
-              <Route path="/sistema-tatico" element={<TacticalSystemPage />} />
-              <Route path="/ia-treinador" element={<AICoachPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AppLayout>
+          <Routes>
+            {/* Auxiliary coach route — standalone, outside AppLayout */}
+            <Route path="/auxiliar/:teamId" element={<AuxiliaryPage />} />
+
+            {/* Main coach routes wrapped in AppLayout */}
+            <Route path="/*" element={
+              <AppLayout>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/calendario" element={<CalendarPage />} />
+                  <Route path="/atletas" element={<AthletesPage />} />
+                  <Route path="/criar-treino" element={<CreateTrainingPage />} />
+                  <Route path="/treino/:id" element={<TrainingDetailPage />} />
+                  <Route path="/treino-hoje" element={<TodayTrainingPage />} />
+                  <Route path="/proximo-treino" element={<NextTrainingPage />} />
+                  <Route path="/periodizacao" element={<PeriodizationPage />} />
+                  <Route path="/historico" element={<HistoryPage />} />
+                  <Route path="/backup" element={<BackupPage />} />
+                  <Route path="/criar-ciclo" element={<CreateCyclePage />} />
+                  <Route path="/time/:id" element={<TeamProfilePage />} />
+                  <Route path="/avaliacoes" element={<EvaluationsPage />} />
+                  <Route path="/atleta/:id" element={<AthleteProfilePage />} />
+                  <Route path="/sistema-tatico" element={<TacticalSystemPage />} />
+                  <Route path="/ia-treinador" element={<AICoachPage />} />
+                  <Route path="/sugestoes" element={<SuggestionsPage />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </AppLayout>
+            } />
+          </Routes>
         </BrowserRouter>
       </AppProvider>
     </TooltipProvider>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { AppData, Athlete, Training, Macrocycle, Mesocycle, Microcycle, EvalTest, EvalResult } from './types';
+import { AppData, Athlete, Training, Macrocycle, Mesocycle, Microcycle, EvalTest, EvalResult, TrainingSuggestion, SuggestionStatus } from './types';
 import { loadData, saveData, generateId } from './store';
 
 interface AppContextType {
@@ -28,6 +28,10 @@ interface AppContextType {
   // Eval Results
   addEvalResult: (r: Omit<EvalResult, 'id'>) => void;
   deleteEvalResult: (id: string) => void;
+  // Training Suggestions
+  addTrainingSuggestion: (s: Omit<TrainingSuggestion, 'id' | 'createdAt' | 'status'>) => void;
+  updateSuggestionStatus: (id: string, status: SuggestionStatus, editedTraining?: Training) => void;
+  deleteTrainingSuggestion: (id: string) => void;
   // Backup
   exportData: () => string;
   importData: (json: string) => boolean;
@@ -120,6 +124,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ...d, evalResults: d.evalResults.filter(x => x.id !== id)
   }));
 
+  // Training Suggestions
+  const addTrainingSuggestion = (s: Omit<TrainingSuggestion, 'id' | 'createdAt' | 'status'>) => update(d => ({
+    ...d,
+    trainingSuggestions: [
+      ...(d.trainingSuggestions || []),
+      { ...s, id: generateId(), status: 'pending', createdAt: new Date().toISOString() },
+    ],
+  }));
+
+  const updateSuggestionStatus = (id: string, status: SuggestionStatus, editedTraining?: Training) => update(d => {
+    const suggestions = (d.trainingSuggestions || []).map(s =>
+      s.id === id ? { ...s, status } : s
+    );
+    let trainings = d.trainings;
+    if (status === 'approved') {
+      const suggestion = (d.trainingSuggestions || []).find(s => s.id === id);
+      if (suggestion) {
+        if (editedTraining) {
+          trainings = trainings.map(t => t.id === editedTraining.id ? editedTraining : t);
+        } else if (suggestion.proposedChange?.newTraining) {
+          trainings = [...trainings, { ...suggestion.proposedChange.newTraining, id: generateId() }];
+        } else if (suggestion.proposedChange?.editedModule && suggestion.proposedChange.moduleId) {
+          trainings = trainings.map(t => {
+            if (t.id !== suggestion.trainingId) return t;
+            return {
+              ...t,
+              modules: t.modules.map(m =>
+                m.id === suggestion.proposedChange!.moduleId
+                  ? { ...m, ...suggestion.proposedChange!.editedModule }
+                  : m
+              ),
+            };
+          });
+        } else if (suggestion.proposedChange?.newModule) {
+          trainings = trainings.map(t => {
+            if (t.id !== suggestion.trainingId) return t;
+            return { ...t, modules: [...t.modules, suggestion.proposedChange!.newModule!] };
+          });
+        }
+      }
+    }
+    return { ...d, trainingSuggestions: suggestions, trainings };
+  });
+
+  const deleteTrainingSuggestion = (id: string) => update(d => ({
+    ...d,
+    trainingSuggestions: (d.trainingSuggestions || []).filter(s => s.id !== id),
+  }));
+
   const exportDataFn = () => JSON.stringify(data, null, 2);
 
   const importData = (json: string): boolean => {
@@ -150,6 +203,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addMesocycle, addMicrocycle,
       addEvalTest, updateEvalTest, deleteEvalTest,
       addEvalResult, deleteEvalResult,
+      addTrainingSuggestion, updateSuggestionStatus, deleteTrainingSuggestion,
       exportData: exportDataFn, importData, updateTeamName, updateTeamPhoto,
     }}>
       {children}

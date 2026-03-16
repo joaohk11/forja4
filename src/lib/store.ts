@@ -17,13 +17,15 @@ const defaultData: AppData = {
   evalTests: [],
   evalResults: [],
   activeTeamId: 'team-1',
+  trainingSuggestions: [],
 };
 
 export function loadData(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return { ...defaultData, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      return { ...defaultData, ...parsed };
     }
   } catch (e) {
     console.error('Failed to load data:', e);
