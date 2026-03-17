@@ -38,5 +38,5 @@ localPort = 5001
 externalPort = 3000
 
 [deployment]
-run = ["sh", "-c", "npm run dev"]
+run = ["sh", "-c", "npx serve"]
 deploymentTarget = "cloudrun"
