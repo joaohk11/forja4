@@ -17,10 +17,13 @@ interface AppContextType {
   // Macrocycles
   addMacrocycle: (m: Omit<Macrocycle, 'id'>) => void;
   updateMacrocycle: (m: Macrocycle) => void;
+  deleteMacrocycle: (id: string) => void;
   // Mesocycles
   addMesocycle: (m: Omit<Mesocycle, 'id'>) => void;
+  deleteMesocycle: (id: string) => void;
   // Microcycles
   addMicrocycle: (m: Omit<Microcycle, 'id'>) => void;
+  deleteMicrocycle: (id: string) => void;
   // Eval Tests
   addEvalTest: (t: Omit<EvalTest, 'id'>) => void;
   updateEvalTest: (t: EvalTest) => void;
@@ -92,12 +95,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ...d, macrocycles: d.macrocycles.map(x => x.id === m.id ? m : x)
   }));
 
+  const deleteMacrocycle = (id: string) => update(d => {
+    const mesoIds = d.mesocycles.filter(m => m.macrocycleId === id).map(m => m.id);
+    const microIds = d.microcycles.filter(m => mesoIds.includes(m.mesocycleId)).map(m => m.id);
+    return {
+      ...d,
+      macrocycles: d.macrocycles.filter(x => x.id !== id),
+      mesocycles: d.mesocycles.filter(x => x.macrocycleId !== id),
+      microcycles: d.microcycles.filter(x => !microIds.includes(x.id)),
+    };
+  });
+
   const addMesocycle = (m: Omit<Mesocycle, 'id'>) => update(d => ({
     ...d, mesocycles: [...d.mesocycles, { ...m, id: generateId() }]
   }));
 
+  const deleteMesocycle = (id: string) => update(d => {
+    const microIds = d.microcycles.filter(m => m.mesocycleId === id).map(m => m.id);
+    return {
+      ...d,
+      mesocycles: d.mesocycles.filter(x => x.id !== id),
+      microcycles: d.microcycles.filter(x => !microIds.includes(x.id)),
+    };
+  });
+
   const addMicrocycle = (m: Omit<Microcycle, 'id'>) => update(d => ({
     ...d, microcycles: [...d.microcycles, { ...m, id: generateId() }]
+  }));
+
+  const deleteMicrocycle = (id: string) => update(d => ({
+    ...d, microcycles: d.microcycles.filter(x => x.id !== id)
   }));
 
   // Eval Tests
@@ -204,8 +231,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       data, activeTeamId, setActiveTeam,
       addAthlete, updateAthlete, deleteAthlete,
       addTraining, updateTraining, deleteTraining,
-      addMacrocycle, updateMacrocycle,
-      addMesocycle, addMicrocycle,
+      addMacrocycle, updateMacrocycle, deleteMacrocycle,
+      addMesocycle, deleteMesocycle,
+      addMicrocycle, deleteMicrocycle,
       addEvalTest, updateEvalTest, deleteEvalTest,
       addEvalResult, deleteEvalResult,
       addTrainingSuggestion, updateSuggestionStatus, deleteTrainingSuggestion,

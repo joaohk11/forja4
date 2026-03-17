@@ -30,6 +30,14 @@ const TrainingDetailPage = () => {
     updateTraining(updated);
   };
 
+  const updateModuleObservation = (moduleId: string, skillObservation: string) => {
+    const updated = {
+      ...training,
+      modules: training.modules.map(m => m.id === moduleId ? { ...m, skillObservation } : m),
+    };
+    updateTraining(updated);
+  };
+
   const cancelTraining = () => {
     updateTraining({ ...training, status: 'cancelado' });
   };
@@ -42,7 +50,7 @@ const TrainingDetailPage = () => {
   };
 
   return (
-    <div className="px-4 py-6">
+    <div className="px-4 py-6 pb-20">
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-primary">
           <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
@@ -90,9 +98,11 @@ const TrainingDetailPage = () => {
                 )}
               </div>
             </div>
+
             {mod.description && (
-              <p className="font-body text-xs text-foreground mb-1">{mod.description}</p>
+              <p className="font-body text-xs text-foreground mb-1 font-medium">{mod.description}</p>
             )}
+
             {mod.blockType === 'posicao' && mod.positions && mod.positions.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">
                 {mod.positions.map(pos => (
@@ -102,9 +112,23 @@ const TrainingDetailPage = () => {
                 ))}
               </div>
             )}
+
+            {/* Skill observation — editable during execution */}
+            <div className="mb-2">
+              <label className="font-mono text-[9px] text-primary uppercase tracking-widest">Obs. Técnica da Habilidade</label>
+              <textarea
+                value={mod.skillObservation || ''}
+                onChange={e => updateModuleObservation(mod.id, e.target.value)}
+                placeholder="Registrar observação técnica específica..."
+                rows={2}
+                className="w-full bg-background border border-primary/20 rounded px-2 py-1.5 font-body text-[10px] text-foreground focus:border-primary focus:outline-none resize-none mt-0.5"
+              />
+            </div>
+
             {mod.observation && (
               <p className="font-body text-[10px] text-muted-foreground mb-2 italic">{mod.observation}</p>
             )}
+
             <div className="flex gap-1">
               {statusOptions.map(opt => (
                 <button

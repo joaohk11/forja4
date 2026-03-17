@@ -12,11 +12,11 @@ export type EvalRule = 'maior_melhor' | 'menor_melhor';
 
 export type PhysicalAttribute = 'forca' | 'explosao' | 'agilidade' | 'velocidade' | 'resistencia' | 'reflexo';
 
-export type TechnicalAttribute = 'bloqueio' | 'saque' | 'ataque' | 'defesa' | 'recepcao' | 'cobertura' | 'leitura_de_jogo';
+export type TechnicalAttribute = 'bloqueio' | 'saque' | 'ataque' | 'defesa' | 'recepcao' | 'cobertura' | 'leitura_de_jogo' | 'levantamento';
 
 export const PHYSICAL_ATTRIBUTES: PhysicalAttribute[] = ['forca', 'explosao', 'agilidade', 'velocidade', 'resistencia', 'reflexo'];
 
-export const TECHNICAL_ATTRIBUTES: TechnicalAttribute[] = ['bloqueio', 'saque', 'ataque', 'defesa', 'recepcao', 'cobertura', 'leitura_de_jogo'];
+export const TECHNICAL_ATTRIBUTES: TechnicalAttribute[] = ['bloqueio', 'saque', 'ataque', 'defesa', 'recepcao', 'cobertura', 'leitura_de_jogo', 'levantamento'];
 
 export const PHYSICAL_ATTRIBUTE_LABELS: Record<PhysicalAttribute, string> = {
   forca: 'Força',
@@ -35,6 +35,7 @@ export const TECHNICAL_ATTRIBUTE_LABELS: Record<TechnicalAttribute, string> = {
   recepcao: 'Recepção',
   cobertura: 'Cobertura',
   leitura_de_jogo: 'Leitura de Jogo',
+  levantamento: 'Levantamento',
 };
 
 export const MEASUREMENT_TYPE_LABELS: Record<MeasurementType, string> = {
@@ -85,6 +86,7 @@ export interface TrainingModule {
   duration: number;
   status: ModuleStatus;
   observation: string;
+  skillObservation?: string;
   skills?: string[];
   positions?: Position[];
 }
@@ -228,7 +230,6 @@ export function calculateAthleteLevel(
     for (const test of testsForAttr) {
       const results = athleteResults.filter(r => r.testId === test.id);
       if (results.length > 0) {
-        // Use most recent result
         const latest = results.sort((a, b) => b.date.localeCompare(a.date))[0];
         testScores.push(latest.convertedScore);
       }
@@ -243,7 +244,7 @@ export function calculateAthleteLevel(
   return Math.round((avg / 5) * 10) / 10;
 }
 
-// Helper: get attribute score for an athlete
+// Helper: get attribute score for an athlete (average of all test results for that attribute)
 export function getAthleteAttributeScore(
   athleteId: string,
   attribute: string,

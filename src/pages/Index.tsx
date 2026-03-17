@@ -3,7 +3,9 @@ import { MacrocycleCard } from '@/components/MacrocycleCard';
 import { HexGrid } from '@/components/HexGrid';
 import { TeamRadars } from '@/components/TeamRadars';
 import { useApp } from '@/lib/context';
-import { Bell, Link2 } from 'lucide-react';
+import { Bell, Link2, TrendingUp, TrendingDown } from 'lucide-react';
+import { useMemo } from 'react';
+import { getAthleteAttributeScore, TECHNICAL_ATTRIBUTE_LABELS, TechnicalAttribute, TECHNICAL_ATTRIBUTES } from '@/lib/types';
 
 const Dashboard = () => {
   const { data, activeTeamId } = useApp();
@@ -16,6 +18,47 @@ const Dashboard = () => {
 
   const auxiliaryLink = `${window.location.origin}/auxiliar/${activeTeamId}`;
 
+  // Team analysis
+  const teamAnalysis = useMemo(() => {
+    const athletes = data.athletes.filter(a => a.teamId === activeTeamId);
+    if (athletes.length === 0) return null;
+
+    const attrs: TechnicalAttribute[] = TECHNICAL_ATTRIBUTES;
+    const scores: { attr: TechnicalAttribute; label: string; avg: number }[] = [];
+
+    for (const attr of attrs) {
+      const sc = athletes.map(a =>
+        getAthleteAttributeScore(a.id, attr, data.evalTests || [], data.evalResults || [])
+      ).filter(s => s > 0);
+      if (sc.length > 0) {
+        scores.push({ attr, label: TECHNICAL_ATTRIBUTE_LABELS[attr], avg: sc.reduce((a, b) => a + b, 0) / sc.length });
+      }
+    }
+
+    if (scores.length === 0) return null;
+    scores.sort((a, b) => b.avg - a.avg);
+
+    const top = scores.slice(0, 2);
+    const bottom = scores.slice(-2).filter(s => s.avg < 60);
+
+    // Training volume check
+    const recentTrainings = data.trainings.filter(t => t.teamId === activeTeamId && t.status === 'concluido');
+    const skillVolume: Record<string, number> = {};
+    recentTrainings.forEach(t => {
+      t.modules.forEach(m => {
+        const desc = m.description?.toLowerCase() || '';
+        attrs.forEach(attr => {
+          const label = TECHNICAL_ATTRIBUTE_LABELS[attr].toLowerCase();
+          if (desc.includes(label) || desc.includes(attr)) {
+            skillVolume[attr] = (skillVolume[attr] || 0) + 1;
+          }
+        });
+      });
+    });
+
+    return { top, bottom, total: athletes.length, scores };
+  }, [data.athletes, data.evalTests, data.evalResults, data.trainings, activeTeamId]);
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-52px)] px-4 py-6">
       <div className="mb-2 flex items-center justify-between">
@@ -23,7 +66,6 @@ const Dashboard = () => {
           {activeTeam?.name || 'Time 1'}
         </p>
         <div className="flex items-center gap-2">
-          {/* Auxiliary link button */}
           <button
             onClick={() => {
               navigator.clipboard?.writeText(auxiliaryLink).catch(() => {});
@@ -35,7 +77,6 @@ const Dashboard = () => {
             <Link2 className="w-3 h-3" strokeWidth={1.5} />
             Auxiliar
           </button>
-          {/* Suggestions notification */}
           {pendingSuggestions.length > 0 && (
             <button
               onClick={() => navigate('/sugestoes')}
@@ -69,6 +110,48 @@ const Dashboard = () => {
       <div className="flex-1 flex items-center justify-center">
         <HexGrid />
       </div>
+
+      {/* Team Analysis */}
+      {teamAnalysis && (teamAnalysis.top.length > 0 || teamAnalysis.bottom.length > 0) && (
+        <div className="mt-4 space-y-2">
+          <h3 className="font-mono text-xs text-muted-foreground uppercase tracking-widest">Análise do Time</h3>
+
+          {teamAnalysis.top.length > 0 && (
+            <div className="card-surface border border-green-500/20 rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-3.5 h-3.5 text-green-400" strokeWidth={1.5} />
+                <span className="font-mono text-[10px] text-green-400 uppercase tracking-widest">Fundamentos Fortes</span>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                {teamAnalysis.top.map(item => (
+                  <div key={item.attr} className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-foreground">{item.label}</span>
+                    <span className="font-mono text-xs text-primary font-bold">{Math.round(item.avg)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {teamAnalysis.bottom.length > 0 && (
+            <div className="card-surface border border-red-500/20 rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown className="w-3.5 h-3.5 text-red-400" strokeWidth={1.5} />
+                <span className="font-mono text-[10px] text-red-400 uppercase tracking-widest">Pontos de Atenção</span>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                {teamAnalysis.bottom.map(item => (
+                  <div key={item.attr} className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-foreground">{item.label}</span>
+                    <span className="font-mono text-xs text-red-400 font-bold">{Math.round(item.avg)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Team Radars */}
       <div className="mt-4">
         <h3 className="font-mono text-xs text-muted-foreground uppercase tracking-widest mb-3">Radar do Time</h3>

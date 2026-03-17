@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '@/lib/context';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Training, TrainingModule, ModuleType, MODULE_TYPE_LABELS, ModuleStatus, Position, POSITION_LABELS, BlockType } from '@/lib/types';
+import { Training, TrainingModule, ModuleType, MODULE_TYPE_LABELS, Position, POSITION_LABELS, BlockType } from '@/lib/types';
 import { generateId } from '@/lib/store';
 import { Plus, Trash2, Users, Globe, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
@@ -28,6 +28,7 @@ const CreateTrainingPage = () => {
       duration: 20,
       status: 'nao_fez',
       observation: '',
+      skillObservation: '',
       positions: blockType === 'posicao' ? [] : undefined,
     }]);
   };
@@ -62,7 +63,7 @@ const CreateTrainingPage = () => {
   };
 
   return (
-    <div className="px-4 py-6">
+    <div className="px-4 py-6 pb-20">
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-mono text-sm font-medium">Criar Treino</h2>
         <button
@@ -129,6 +130,7 @@ const CreateTrainingPage = () => {
                 <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
               </button>
             </div>
+
             <div className="grid grid-cols-2 gap-2">
               <select
                 value={mod.type}
@@ -144,20 +146,32 @@ const CreateTrainingPage = () => {
                 className="bg-background border border-border rounded px-2 py-1.5 font-mono text-xs text-foreground focus:border-primary focus:outline-none"
               />
             </div>
+
             <input
               value={mod.description}
               onChange={e => updateModule(mod.id, { description: e.target.value })}
-              placeholder="Descrição / Fundamento"
-              className="w-full bg-background border border-border rounded px-2 py-1.5 font-body text-xs text-foreground focus:border-primary focus:outline-none"
-            />
-            <input
-              value={mod.observation}
-              onChange={e => updateModule(mod.id, { observation: e.target.value })}
-              placeholder="Observação"
+              placeholder="Habilidade / Fundamento (ex: Ataque, Manchete, Bloqueio)"
               className="w-full bg-background border border-border rounded px-2 py-1.5 font-body text-xs text-foreground focus:border-primary focus:outline-none"
             />
 
-            {/* Position selector for "por posição" blocks */}
+            <div>
+              <label className="font-mono text-[9px] text-primary uppercase tracking-widest">Observação Técnica da Habilidade</label>
+              <textarea
+                value={mod.skillObservation || ''}
+                onChange={e => updateModule(mod.id, { skillObservation: e.target.value })}
+                placeholder="Ex: atraso no tempo de salto, leitura lenta do levantador..."
+                rows={2}
+                className="w-full bg-background border border-primary/20 rounded px-2 py-1.5 font-body text-xs text-foreground focus:border-primary focus:outline-none resize-none mt-1"
+              />
+            </div>
+
+            <input
+              value={mod.observation}
+              onChange={e => updateModule(mod.id, { observation: e.target.value })}
+              placeholder="Observação geral do bloco"
+              className="w-full bg-background border border-border rounded px-2 py-1.5 font-body text-xs text-foreground focus:border-primary focus:outline-none"
+            />
+
             {mod.blockType === 'posicao' && (
               <div>
                 <label className="font-mono text-[10px] text-muted-foreground mb-1 block">Posições participantes</label>
@@ -169,9 +183,7 @@ const CreateTrainingPage = () => {
                         key={pos}
                         onClick={() => togglePosition(mod.id, pos)}
                         className={`font-mono text-[10px] px-2 py-1 rounded border transition-all ${
-                          selected
-                            ? 'border-primary text-primary bg-primary/10'
-                            : 'border-border text-muted-foreground hover:border-primary/30'
+                          selected ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-primary/30'
                         }`}
                       >
                         {POSITION_LABELS[pos]}
