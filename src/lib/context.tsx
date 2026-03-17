@@ -142,7 +142,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const suggestion = (d.trainingSuggestions || []).find(s => s.id === id);
       if (suggestion) {
         if (editedTraining) {
-          trainings = trainings.map(t => t.id === editedTraining.id ? editedTraining : t);
+          const exists = trainings.some(t => t.id === editedTraining.id);
+          if (exists) {
+            trainings = trainings.map(t => t.id === editedTraining.id ? editedTraining : t);
+          } else {
+            trainings = [...trainings, editedTraining];
+          }
         } else if (suggestion.proposedChange?.newTraining) {
           trainings = [...trainings, { ...suggestion.proposedChange.newTraining, id: generateId() }];
         } else if (suggestion.proposedChange?.editedModule && suggestion.proposedChange.moduleId) {

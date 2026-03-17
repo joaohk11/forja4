@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApp } from '@/lib/context';
 import { streamAI, AIMessage } from '@/lib/ai';
+import { toast } from 'sonner';
 import { generateId } from '@/lib/store';
 import {
-  Training, TrainingModule, ModuleStatus, MODULE_TYPE_LABELS,
+  Training, ModuleStatus, MODULE_TYPE_LABELS,
   POSITION_LABELS, Position, TECHNICAL_ATTRIBUTES, TECHNICAL_ATTRIBUTE_LABELS,
   getAthleteAttributeScore, calculateAthleteLevel,
 } from '@/lib/types';
@@ -120,7 +121,7 @@ const AuxiliaryPage = () => {
     });
     setSuggestDesc('');
     setShowSuggestForm(null);
-    alert('Sugestão enviada ao treinador!');
+    toast.success('Sugestão enviada ao treinador!');
   };
 
   const handleAnalyzeAthlete = () => {
@@ -188,7 +189,7 @@ const AuxiliaryPage = () => {
       },
     });
     setTrainResult('');
-    alert('Treino enviado como sugestão ao treinador!');
+    toast.success('Treino enviado como sugestão ao treinador!');
   };
 
   const handleChatSend = (override?: string) => {

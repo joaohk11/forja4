@@ -31,7 +31,7 @@ const App = () => (
     <TooltipProvider>
       <Sonner />
       <AppProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             {/* Auxiliary coach route — standalone, outside AppLayout */}
             <Route path="/auxiliar/:teamId" element={<AuxiliaryPage />} />

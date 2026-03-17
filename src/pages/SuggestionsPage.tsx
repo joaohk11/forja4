@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/lib/context';
-import { TrainingSuggestion, Training, TrainingModule, MODULE_TYPE_LABELS } from '@/lib/types';
+import { TrainingSuggestion, Training, MODULE_TYPE_LABELS } from '@/lib/types';
 import { generateId } from '@/lib/store';
 import { ArrowLeft, CheckCircle2, XCircle, Edit2, Clock, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
