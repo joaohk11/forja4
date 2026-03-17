@@ -1,44 +1,38 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { AppData, Athlete, Training, Macrocycle, Mesocycle, Microcycle, EvalTest, EvalResult, TrainingSuggestion, SuggestionStatus } from './types';
+import { AppData, Athlete, Training, Macrocycle, Mesocycle, Microcycle, EvalTest, EvalResult, TrainingSuggestion, SuggestionStatus, TrainingRating } from './types';
 import { loadData, saveData, generateId } from './store';
 
 interface AppContextType {
   data: AppData;
   activeTeamId: string;
   setActiveTeam: (id: string) => void;
-  // Athletes
   addAthlete: (athlete: Omit<Athlete, 'id'>) => void;
   updateAthlete: (athlete: Athlete) => void;
   deleteAthlete: (id: string) => void;
-  // Trainings
   addTraining: (training: Omit<Training, 'id'>) => void;
   updateTraining: (training: Training) => void;
   deleteTraining: (id: string) => void;
-  // Macrocycles
+  duplicateTraining: (id: string) => void;
+  toggleFavorite: (id: string) => void;
+  updateAttendance: (trainingId: string, athleteId: string, status: 'presente' | 'ausente') => void;
+  updateTrainingRating: (trainingId: string, rating: TrainingRating, note: string, by: string) => void;
   addMacrocycle: (m: Omit<Macrocycle, 'id'>) => void;
   updateMacrocycle: (m: Macrocycle) => void;
   deleteMacrocycle: (id: string) => void;
-  // Mesocycles
   addMesocycle: (m: Omit<Mesocycle, 'id'>) => void;
   deleteMesocycle: (id: string) => void;
-  // Microcycles
   addMicrocycle: (m: Omit<Microcycle, 'id'>) => void;
   deleteMicrocycle: (id: string) => void;
-  // Eval Tests
   addEvalTest: (t: Omit<EvalTest, 'id'>) => void;
   updateEvalTest: (t: EvalTest) => void;
   deleteEvalTest: (id: string) => void;
-  // Eval Results
   addEvalResult: (r: Omit<EvalResult, 'id'>) => void;
   deleteEvalResult: (id: string) => void;
-  // Training Suggestions
   addTrainingSuggestion: (s: Omit<TrainingSuggestion, 'id' | 'createdAt' | 'status'>) => void;
   updateSuggestionStatus: (id: string, status: SuggestionStatus, editedTraining?: Training) => void;
   deleteTrainingSuggestion: (id: string) => void;
-  // Backup
   exportData: () => string;
   importData: (json: string) => boolean;
-  // Team
   updateTeamName: (id: string, name: string) => void;
   updateTeamPhoto: (id: string, photo: string | undefined) => void;
 }
@@ -87,6 +81,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ...d, trainings: d.trainings.filter(x => x.id !== id)
   }));
 
+  const duplicateTraining = (id: string) => update(d => {
+    const original = d.trainings.find(t => t.id === id);
+    if (!original) return d;
+    const copy: Training = {
+      ...original,
+      id: generateId(),
+      name: `Cópia de ${original.name}`,
+      date: new Date().toISOString().slice(0, 10),
+      status: 'planejado',
+      isFavorite: false,
+      attendance: undefined,
+      rating: undefined,
+      ratingNote: undefined,
+      ratingBy: undefined,
+      modules: original.modules.map(m => ({ ...m, status: 'nao_fez' as const })),
+    };
+    return { ...d, trainings: [...d.trainings, copy] };
+  });
+
+  const toggleFavorite = (id: string) => update(d => ({
+    ...d,
+    trainings: d.trainings.map(t =>
+      t.id === id ? { ...t, isFavorite: !t.isFavorite } : t
+    ),
+  }));
+
+  const updateAttendance = (trainingId: string, athleteId: string, status: 'presente' | 'ausente') =>
+    update(d => ({
+      ...d,
+      trainings: d.trainings.map(t => {
+        if (t.id !== trainingId) return t;
+        const attendance = { ...(t.attendance || {}), [athleteId]: status };
+        return { ...t, attendance };
+      }),
+    }));
+
+  const updateTrainingRating = (trainingId: string, rating: TrainingRating, note: string, by: string) =>
+    update(d => ({
+      ...d,
+      trainings: d.trainings.map(t =>
+        t.id === trainingId ? { ...t, rating, ratingNote: note, ratingBy: by } : t
+      ),
+    }));
+
   const addMacrocycle = (m: Omit<Macrocycle, 'id'>) => update(d => ({
     ...d, macrocycles: [...d.macrocycles, { ...m, id: generateId() }]
   }));
@@ -127,7 +165,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ...d, microcycles: d.microcycles.filter(x => x.id !== id)
   }));
 
-  // Eval Tests
   const addEvalTest = (t: Omit<EvalTest, 'id'>) => update(d => ({
     ...d, evalTests: [...d.evalTests, { ...t, id: generateId() }]
   }));
@@ -142,7 +179,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     evalResults: d.evalResults.filter(r => r.testId !== id),
   }));
 
-  // Eval Results
   const addEvalResult = (r: Omit<EvalResult, 'id'>) => update(d => ({
     ...d, evalResults: [...d.evalResults, { ...r, id: generateId() }]
   }));
@@ -151,7 +187,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ...d, evalResults: d.evalResults.filter(x => x.id !== id)
   }));
 
-  // Training Suggestions
   const addTrainingSuggestion = (s: Omit<TrainingSuggestion, 'id' | 'createdAt' | 'status'>) => update(d => ({
     ...d,
     trainingSuggestions: [
@@ -170,11 +205,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (suggestion) {
         if (editedTraining) {
           const exists = trainings.some(t => t.id === editedTraining.id);
-          if (exists) {
-            trainings = trainings.map(t => t.id === editedTraining.id ? editedTraining : t);
-          } else {
-            trainings = [...trainings, editedTraining];
-          }
+          trainings = exists
+            ? trainings.map(t => t.id === editedTraining.id ? editedTraining : t)
+            : [...trainings, editedTraining];
         } else if (suggestion.proposedChange?.newTraining) {
           trainings = [...trainings, { ...suggestion.proposedChange.newTraining, id: generateId() }];
         } else if (suggestion.proposedChange?.editedModule && suggestion.proposedChange.moduleId) {
@@ -231,6 +264,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       data, activeTeamId, setActiveTeam,
       addAthlete, updateAthlete, deleteAthlete,
       addTraining, updateTraining, deleteTraining,
+      duplicateTraining, toggleFavorite,
+      updateAttendance, updateTrainingRating,
       addMacrocycle, updateMacrocycle, deleteMacrocycle,
       addMesocycle, deleteMesocycle,
       addMicrocycle, deleteMicrocycle,
