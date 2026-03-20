@@ -3,99 +3,189 @@ import cors from 'cors';
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
-const SYSTEM_PROMPT = `Você é um treinador profissional de voleibol com experiência em equipes competitivas.
+// ─── PERSONALIDADE FORJA ────────────────────────────────────────────────────
+const PERSONALIDADE_FORJA = `Você é o FORJA, um treinador profissional de voleibol de alto nível.
+Seja técnico, direto e focado em evolução progressiva.
+Nunca gere respostas genéricas.
+Sempre estruture treinos em blocos com tempo e objetivo.
+Funções possíveis: TREINADOR, ANALISTA, ADAPTADOR.`;
 
-Seu objetivo é ajudar treinadores a melhorar seus treinos e desenvolver atletas.
+// ─── FUNÇÃO CENTRAL chamarIA ────────────────────────────────────────────────
+async function chamarIA(funcao: string, dados: string): Promise<string> {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-Sempre responda de forma:
-- Prática
-- Organizada
-- Direta
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY não configurada no servidor.');
+  }
 
-Ao criar treinos:
-• Organizar em etapas claras (Aquecimento, Exercício Principal, Exercício Complementar, Situação de Jogo)
-• Utilizar exercícios reais de voleibol
-• Considerar posições dos atletas
-• Considerar objetivos técnicos e táticos
-• Incluir tempo estimado para cada etapa
+  const prompt = `${PERSONALIDADE_FORJA}\n\nFunção atual: ${funcao}\n\n${dados}`;
 
-Ao analisar atletas:
-• Identificar pontos fortes com base nos atributos
-• Identificar pontos fracos
-• Sugerir exercícios específicos para melhoria
-• Indicar função tática ideal
+  const body = {
+    contents: [
+      {
+        parts: [
+          { text: prompt }
+        ]
+      }
+    ]
+  };
 
-Evitar respostas genéricas. Sempre responder como um treinador experiente.`;
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini error — status:', response.status, 'body:', errorText);
+    throw new Error(`Gemini retornou status ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Erro ao gerar resposta';
+}
+
+// ─── ROTA AI COACH ──────────────────────────────────────────────────────────
 app.post('/api/ai-coach', async (req, res) => {
   const { messages, context } = req.body;
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-  if (!OPENAI_API_KEY) {
-    return res.status(500).json({ error: 'OPENAI_API_KEY não configurada no servidor.' });
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY não configurada no servidor.' });
   }
 
-  let systemContent = SYSTEM_PROMPT;
+  // Build the full conversation as a single prompt for Gemini
+  let conversationText = '';
   if (context) {
-    systemContent += `\n\nDados do sistema disponíveis:\n${JSON.stringify(context, null, 2)}`;
+    conversationText += `Dados do sistema disponíveis:\n${JSON.stringify(context, null, 2)}\n\n`;
   }
-
-  const allMessages = [
-    { role: 'system', content: systemContent },
-    ...(messages || []),
-  ];
+  if (messages && messages.length > 0) {
+    for (const msg of messages) {
+      const role = msg.role === 'user' ? 'Treinador' : 'FORJA';
+      conversationText += `${role}: ${msg.content}\n`;
+    }
+    conversationText += 'FORJA:';
+  }
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: allMessages,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return res.status(429).json({ error: 'Limite de requisições excedido. Tente novamente em alguns instantes.' });
-      }
-      if (response.status === 402) {
-        return res.status(402).json({ error: 'Créditos insuficientes. Verifique sua conta OpenAI.' });
-      }
-      const text = await response.text();
-      console.error('OpenAI error:', response.status, text);
-      return res.status(500).json({ error: 'Erro no gateway de IA' });
-    }
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    const reader = response.body!.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(decoder.decode(value, { stream: true }));
-    }
-
-    res.end();
+    const text = await chamarIA('TREINADOR', conversationText);
+    return res.json({ text });
   } catch (e) {
     console.error('ai-coach error:', e);
-    if (!res.headersSent) {
-      res.status(500).json({ error: e instanceof Error ? e.message : 'Erro desconhecido' });
-    }
+    return res.status(500).json({ error: e instanceof Error ? e.message : 'Erro desconhecido' });
   }
 });
 
-const PORT = process.env.PORT || 3000;
+// ─── ROTA BACKUP (Supabase proxy) ───────────────────────────────────────────
+app.post('/api/backup/save', async (req, res) => {
+  const { data, name, supabaseUrl, supabaseKey } = req.body;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(400).json({ error: 'Credenciais Supabase ausentes.' });
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/backups`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify({ data, name, created_at: new Date().toISOString() }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('Supabase backup error:', response.status, err);
+      return res.status(500).json({ error: 'Erro ao salvar backup na nuvem.' });
+    }
+
+    const result = await response.json();
+    return res.json({ success: true, backup: result[0] });
+  } catch (e) {
+    console.error('backup/save error:', e);
+    return res.status(500).json({ error: e instanceof Error ? e.message : 'Erro desconhecido' });
+  }
+});
+
+app.get('/api/backup/list', async (req, res) => {
+  const supabaseUrl = req.query.supabaseUrl as string;
+  const supabaseKey = req.query.supabaseKey as string;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(400).json({ error: 'Credenciais Supabase ausentes.' });
+  }
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/backups?select=id,name,created_at&order=created_at.desc&limit=20`,
+      {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('Supabase list error:', response.status, err);
+      return res.status(500).json({ error: 'Erro ao listar backups.' });
+    }
+
+    const result = await response.json();
+    return res.json(result);
+  } catch (e) {
+    return res.status(500).json({ error: e instanceof Error ? e.message : 'Erro desconhecido' });
+  }
+});
+
+app.get('/api/backup/load/:id', async (req, res) => {
+  const { id } = req.params;
+  const supabaseUrl = req.query.supabaseUrl as string;
+  const supabaseKey = req.query.supabaseKey as string;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(400).json({ error: 'Credenciais Supabase ausentes.' });
+  }
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/backups?id=eq.${id}&select=*`,
+      {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return res.status(500).json({ error: 'Erro ao carregar backup.' });
+    }
+
+    const result = await response.json();
+    if (!result || result.length === 0) {
+      return res.status(404).json({ error: 'Backup não encontrado.' });
+    }
+
+    return res.json(result[0]);
+  } catch (e) {
+    return res.status(500).json({ error: e instanceof Error ? e.message : 'Erro desconhecido' });
+  }
+});
+
+// ─── EXEMPLO DE USO: chamarIA ───────────────────────────────────────────────
+// chamarIA("TREINADOR", "criar treino de saque e passe 120 minutos")
+
+const PORT = process.env.SERVER_PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`[FORJA] Servidor rodando na porta ${PORT}`);
 });
