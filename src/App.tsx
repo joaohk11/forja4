@@ -22,6 +22,7 @@ import TacticalSystemPage from "./pages/TacticalSystemPage";
 import AICoachPage from "./pages/AICoachPage";
 import SuggestionsPage from "./pages/SuggestionsPage";
 import AuxiliaryPage from "./pages/AuxiliaryPage";
+import AthletesByPositionPage from "./pages/AthletesByPositionPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/calendario" element={<CalendarPage />} />
                   <Route path="/atletas" element={<AthletesPage />} />
+                  <Route path="/atletas-por-posicao" element={<AthletesByPositionPage />} />
                   <Route path="/criar-treino" element={<CreateTrainingPage />} />
                   <Route path="/treino/:id" element={<TrainingDetailPage />} />
                   <Route path="/treino-hoje" element={<TodayTrainingPage />} />

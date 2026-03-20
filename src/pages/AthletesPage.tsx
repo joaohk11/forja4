@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/lib/context';
-import { Plus, User, Trash2, Edit2, Brain } from 'lucide-react';
+import { Plus, User, Trash2, Edit2, Brain, LayoutGrid } from 'lucide-react';
 import { Athlete, Position, POSITION_LABELS } from '@/lib/types';
 import { generateId } from '@/lib/store';
 
@@ -46,14 +46,14 @@ const AthletesPage = () => {
 
   return (
     <div className="px-4 py-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h2 className="font-mono text-sm font-medium">Atletas ({teamAthletes.length}/25)</h2>
         <div className="flex gap-2">
           <button
             onClick={() => navigate('/ia-treinador?tab=atleta')}
             className="flex items-center gap-1 text-primary font-mono text-[10px] hover:neon-text transition-all"
           >
-            <Brain className="w-3.5 h-3.5" strokeWidth={1.5} /> Analisar com IA
+            <Brain className="w-3.5 h-3.5" strokeWidth={1.5} /> IA
           </button>
           {teamAthletes.length < 25 && (
             <button
@@ -65,6 +65,20 @@ const AthletesPage = () => {
           )}
         </div>
       </div>
+
+      {/* Por Posição shortcut */}
+      {teamAthletes.length > 0 && (
+        <button
+          onClick={() => navigate('/atletas-por-posicao')}
+          className="w-full mb-4 flex items-center justify-between px-4 py-2.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4 text-primary" strokeWidth={1.5} />
+            <span className="font-mono text-xs text-primary">Ver por posição</span>
+          </div>
+          <span className="font-mono text-[10px] text-muted-foreground">comparar atletas →</span>
+        </button>
+      )}
 
       {showForm && (
         <div className="card-surface neon-border rounded-lg p-4 mb-4 space-y-3">

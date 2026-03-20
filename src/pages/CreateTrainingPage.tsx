@@ -476,10 +476,10 @@ const CreateTrainingPage = () => {
               <div>
                 <label className="font-mono text-xs text-primary uppercase tracking-wider mb-1 block">Instrução / Observação Técnica</label>
                 <textarea
-                  value={mod.skillObservation || ''} rows={2}
+                  value={mod.skillObservation || ''} rows={5}
                   onChange={e => updateModule(mod.id, { skillObservation: e.target.value })}
                   placeholder="Ex: foco no tempo de salto, leitura do levantador..."
-                  className="w-full bg-background border border-primary/20 rounded-lg px-3 py-2.5 font-body text-sm text-foreground focus:border-primary focus:outline-none resize-none"
+                  className="w-full bg-background border border-primary/20 rounded-lg px-3 py-2.5 font-body text-sm text-foreground focus:border-primary focus:outline-none resize-y min-h-[100px]"
                 />
               </div>
 
