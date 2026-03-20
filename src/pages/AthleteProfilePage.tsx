@@ -7,6 +7,7 @@ import {
   PHYSICAL_ATTRIBUTES, TECHNICAL_ATTRIBUTES,
   PHYSICAL_ATTRIBUTE_LABELS, TECHNICAL_ATTRIBUTE_LABELS,
   calculateAthleteLevel, getAthleteAttributeScore, getAthleteAttributeLastDate,
+  TechnicalAttribute,
 } from '@/lib/types';
 import { ArrowLeft, User, Camera, Trash2, Star, Brain, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
@@ -20,6 +21,12 @@ const formatAttrDate = (dateStr: string | null): string => {
   }
 };
 
+function scoreColor(score: number): string {
+  if (score > 80) return 'text-green-400';
+  if (score < 50 && score > 0) return 'text-red-400';
+  return 'text-primary';
+}
+
 const AthleteProfilePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -28,6 +35,15 @@ const AthleteProfilePage = () => {
 
   const athlete = data.athletes.find(a => a.id === id);
   const team = athlete ? data.teams.find(t => t.id === athlete.teamId) : null;
+
+  // Apply levantador logic: replace 'ataque' with focus on 'levantamento'
+  const activeTechnicalAttrs = useMemo((): TechnicalAttribute[] => {
+    if (!athlete) return TECHNICAL_ATTRIBUTES;
+    if (athlete.position === 'levantador') {
+      return TECHNICAL_ATTRIBUTES.filter(a => a !== 'ataque');
+    }
+    return TECHNICAL_ATTRIBUTES.filter(a => a !== 'levantamento');
+  }, [athlete]);
 
   const physicalScores = useMemo(() => {
     if (!athlete) return PHYSICAL_ATTRIBUTES.map(() => 0);
@@ -44,18 +60,18 @@ const AthleteProfilePage = () => {
   }, [athlete, data.evalTests, data.evalResults]);
 
   const technicalScores = useMemo(() => {
-    if (!athlete) return TECHNICAL_ATTRIBUTES.map(() => 0);
-    return TECHNICAL_ATTRIBUTES.map(attr =>
+    if (!athlete) return activeTechnicalAttrs.map(() => 0);
+    return activeTechnicalAttrs.map(attr =>
       getAthleteAttributeScore(athlete.id, attr, data.evalTests || [], data.evalResults || [])
     );
-  }, [athlete, data.evalTests, data.evalResults]);
+  }, [athlete, activeTechnicalAttrs, data.evalTests, data.evalResults]);
 
   const technicalDates = useMemo(() => {
-    if (!athlete) return TECHNICAL_ATTRIBUTES.map(() => null as string | null);
-    return TECHNICAL_ATTRIBUTES.map(attr =>
+    if (!athlete) return activeTechnicalAttrs.map(() => null as string | null);
+    return activeTechnicalAttrs.map(attr =>
       getAthleteAttributeLastDate(athlete.id, attr, data.evalTests || [], data.evalResults || [])
     );
-  }, [athlete, data.evalTests, data.evalResults]);
+  }, [athlete, activeTechnicalAttrs, data.evalTests, data.evalResults]);
 
   const level = useMemo(() => {
     if (!athlete) return 0;
@@ -82,7 +98,7 @@ const AthleteProfilePage = () => {
   };
 
   const physicalLabels = PHYSICAL_ATTRIBUTES.map(a => PHYSICAL_ATTRIBUTE_LABELS[a]);
-  const technicalLabels = TECHNICAL_ATTRIBUTES.map(a => TECHNICAL_ATTRIBUTE_LABELS[a]);
+  const technicalLabels = activeTechnicalAttrs.map(a => TECHNICAL_ATTRIBUTE_LABELS[a]);
 
   return (
     <div className="pb-8">
@@ -169,10 +185,12 @@ const AthleteProfilePage = () => {
                       style={{ width: `${physicalScores[i]}%`, boxShadow: '0 0 6px hsl(var(--primary) / 0.5)' }}
                     />
                   </div>
-                  <span className="font-mono text-xs text-primary w-8 text-right">{Math.round(physicalScores[i])}</span>
+                  <span className={`font-mono text-xs font-bold w-8 text-right ${scoreColor(physicalScores[i])}`}>
+                    {Math.round(physicalScores[i]) || '—'}
+                  </span>
                 </div>
                 {physicalDates[i] && (
-                  <p className="font-mono text-[8px] text-muted-foreground text-right mt-0.5 pr-0 pl-24">
+                  <p className="font-mono text-[8px] text-muted-foreground text-right mt-0.5 pl-24">
                     Última atualização: {formatAttrDate(physicalDates[i])}
                   </p>
                 )}
@@ -188,7 +206,7 @@ const AthleteProfilePage = () => {
         <h3 className="font-mono text-xs text-muted-foreground uppercase tracking-widest mb-3">Atributos Técnicos</h3>
         <div className="card-surface neon-border rounded-lg p-4">
           <div className="space-y-2.5 mb-4">
-            {TECHNICAL_ATTRIBUTES.map((attr, i) => (
+            {activeTechnicalAttrs.map((attr, i) => (
               <div key={attr}>
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-[10px] text-muted-foreground w-24 text-right">{TECHNICAL_ATTRIBUTE_LABELS[attr]}</span>
@@ -198,10 +216,12 @@ const AthleteProfilePage = () => {
                       style={{ width: `${technicalScores[i]}%`, boxShadow: '0 0 6px hsl(var(--primary) / 0.5)' }}
                     />
                   </div>
-                  <span className="font-mono text-xs text-primary w-8 text-right">{Math.round(technicalScores[i])}</span>
+                  <span className={`font-mono text-xs font-bold w-8 text-right ${scoreColor(technicalScores[i])}`}>
+                    {Math.round(technicalScores[i]) || '—'}
+                  </span>
                 </div>
                 {technicalDates[i] && (
-                  <p className="font-mono text-[8px] text-muted-foreground text-right mt-0.5 pr-0 pl-28">
+                  <p className="font-mono text-[8px] text-muted-foreground text-right mt-0.5 pl-28">
                     Última atualização: {formatAttrDate(technicalDates[i])}
                   </p>
                 )}
