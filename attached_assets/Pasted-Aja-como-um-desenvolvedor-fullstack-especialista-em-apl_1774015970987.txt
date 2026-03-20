@@ -1,0 +1,160 @@
+Aja como um desenvolvedor fullstack especialista em aplicações esportivas, lógica de rotação de vôlei e UI mobile.
+
+Implemente os seguintes ajustes no sistema FORJA com foco em clareza visual e correção tática.
+
+--------------------------------------------------
+
+🔷 1. AJUSTE NOS MINI CARDS
+
+OBJETIVO:
+Melhorar a relevância dos dados exibidos por posição.
+
+--------------------------------------
+
+REGRAS:
+
+- Nos mini cards dos atletas:
+
+REMOVER:
+• atributo "Levantamento" para todas as posições
+
+EXCEÇÃO:
+• manter "Levantamento" APENAS para levantadores
+
+--------------------------------------
+
+SUBSTITUIR POR:
+
+• atributo "Físico" (já calculado no sistema)
+
+--------------------------------------
+
+RESULTADO FINAL:
+
+Para atletas NÃO levantadores:
+- ataque
+- bloqueio
+- passe
+- defesa
+- físico
+
+Para levantadores:
+- levantamento
+- bloqueio
+- passe
+- defesa
+- físico
+
+--------------------------------------
+
+REGRAS VISUAIS:
+
+- manter layout leve
+- garantir legibilidade
+- não aumentar tamanho do card
+- manter consistência entre cards
+
+--------------------------------------------------
+
+🔷 2. LÓGICA AUTOMÁTICA DO LÍBERO (CORRIGIDA)
+
+OBJETIVO:
+Simular corretamente a substituição do líbero no fundo de quadra.
+
+--------------------------------------
+
+REGRAS TÁTICAS:
+
+- Líbero:
+  • só joga no FUNDO
+  • não aparece na rede
+
+- Central:
+  • só joga na REDE
+  • não participa do fundo
+
+--------------------------------------
+
+COMPORTAMENTO AUTOMÁTICO:
+
+Ao girar a rotação:
+
+--------------------------------------
+
+CASO 1:
+Quando o CENTRAL estiver na posição P5 (fundo)
+
+→ substituir automaticamente pelo LÍBERO
+
+--------------------------------------
+
+CASO 2:
+Quando a rotação avançar de P5 → P4
+
+→ remover líbero
+→ retornar CENTRAL na rede
+
+--------------------------------------
+
+CASO 3:
+Quando o CENTRAL chegar na posição P2
+
+→ ele ainda está na rede (ok)
+
+Quando rotacionar de P2 → P1
+
+→ substituir novamente pelo LÍBERO
+
+--------------------------------------
+
+RESUMO DA REGRA:
+
+- Central sai no fundo (P5 e P1)
+- Líbero entra automaticamente nessas posições
+- Central volta quando chega na rede
+
+--------------------------------------
+
+🔷 3. REPRESENTAÇÃO VISUAL NA QUADRA
+
+- A "bolinha" do jogador deve refletir:
+
+  • CENTRAL (quando na rede)
+  • LÍBERO (quando no fundo)
+
+--------------------------------------
+
+REGRAS VISUAIS:
+
+- troca deve ser automática
+- sem clique manual
+- sem delay
+- manter fluidez da rotação
+
+--------------------------------------
+
+IDENTIFICAÇÃO:
+
+- diferenciar visualmente:
+  • central
+  • líbero
+
+(ex: cor, borda ou ícone)
+
+--------------------------------------------------
+
+🔷 4. REGRAS DE SISTEMA
+
+- não quebrar lógica existente
+- atualizar em tempo real ao rotacionar
+- manter performance leve
+- garantir consistência com regras do vôlei real
+
+--------------------------------------------------
+
+🔷 OBJETIVO FINAL
+
+- mini cards mais inteligentes e relevantes
+- comportamento realista do líbero
+- leitura visual clara na quadra
+- sistema mais profissional e confiável

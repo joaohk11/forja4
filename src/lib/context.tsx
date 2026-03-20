@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { AppData, Athlete, Training, Macrocycle, Mesocycle, Microcycle, EvalTest, EvalResult, TrainingSuggestion, SuggestionStatus, TrainingRating, LocalAccessLink, AccessLinkType, AccessLinkRole } from './types';
 import { loadData, saveData, generateId } from './store';
+import { accessService } from '@/services/accessService';
 
 interface AppContextType {
   data: AppData;
@@ -277,12 +278,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     update(d => ({ ...d, accessLinks: [...(d.accessLinks || []), link] }));
+    // Async sync to Supabase (fire-and-forget, no Supabase = no-op)
+    accessService.createLink({
+      token: link.token,
+      tipo: link.tipo,
+      reference_id: link.referenceId,
+      role: link.role,
+    }).catch(() => {});
     return link;
   };
 
-  const revokeAccessLink = (token: string) => update(d => ({
-    ...d, accessLinks: (d.accessLinks || []).filter(l => l.token !== token),
-  }));
+  const revokeAccessLink = (token: string) => {
+    update(d => ({
+      ...d, accessLinks: (d.accessLinks || []).filter(l => l.token !== token),
+    }));
+    // Async sync to Supabase (fire-and-forget)
+    accessService.revokeToken(token).catch(() => {});
+  };
 
   return (
     <AppContext.Provider value={{

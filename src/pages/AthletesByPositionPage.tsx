@@ -28,7 +28,8 @@ const POSITION_BORDER: Record<Position, string> = {
   libero:     'border-green-400/40',
 };
 
-// Skills displayed on mini radar — for levantador, swap ataque → levantamento
+// Skills displayed on mini radar
+// For levantador: levantamento replaces ataque; all positions get físico as 5th (replaces levantamento for non-setters)
 function getSkillsForPosition(position: Position) {
   if (position === 'levantador') {
     return [
@@ -36,15 +37,15 @@ function getSkillsForPosition(position: Position) {
       { key: 'bloqueio',     label: 'Blq' },
       { key: 'recepcao',     label: 'Passe' },
       { key: 'defesa',       label: 'Def' },
-      { key: 'saque',        label: 'Saque' },
+      { key: '_fisico',      label: 'Fís' },
     ];
   }
   return [
-    { key: 'ataque',      label: 'Atq' },
-    { key: 'bloqueio',    label: 'Blq' },
-    { key: 'recepcao',    label: 'Passe' },
-    { key: 'defesa',      label: 'Def' },
-    { key: 'levantamento',label: 'Lev' },
+    { key: 'ataque',   label: 'Atq' },
+    { key: 'bloqueio', label: 'Blq' },
+    { key: 'recepcao', label: 'Passe' },
+    { key: 'defesa',   label: 'Def' },
+    { key: '_fisico',  label: 'Fís' },
   ];
 }
 
@@ -105,7 +106,6 @@ function MiniRadar({ values, size = 80 }: { values: number[]; size?: number }) {
 interface MiniCardProps {
   athlete: Athlete;
   position: Position;
-  fisico: number;
   skillValues: number[];
   skillLabels: { key: string; label: string }[];
   selected: boolean;
@@ -113,7 +113,7 @@ interface MiniCardProps {
   onOpen: () => void;
 }
 
-function AthleteCard({ athlete, position, fisico, skillValues, skillLabels, selected, onToggle, onOpen }: MiniCardProps) {
+function AthleteCard({ athlete, position, skillValues, skillLabels, selected, onToggle, onOpen }: MiniCardProps) {
   return (
     <div
       className={`card-surface rounded-xl p-3 border transition-all cursor-pointer ${
@@ -153,38 +153,30 @@ function AthleteCard({ athlete, position, fisico, skillValues, skillLabels, sele
       <div className="flex items-center gap-2">
         <MiniRadar values={skillValues} size={76} />
         <div className="flex flex-col gap-1 flex-1 min-w-0">
-          {skillLabels.map((sk, i) => (
-            <div key={sk.key} className="flex items-center gap-1">
-              <span className="font-mono text-[8px] text-muted-foreground w-8 flex-shrink-0">{sk.label}</span>
-              <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${skillValues[i]}%`, boxShadow: '0 0 3px hsl(var(--primary)/0.5)' }}
-                />
+          {skillLabels.map((sk, i) => {
+            const isFisico = sk.key === '_fisico';
+            return (
+              <div key={sk.key} className="flex items-center gap-1">
+                <span className={`font-mono text-[8px] w-8 flex-shrink-0 ${isFisico ? 'text-yellow-400' : 'text-muted-foreground'}`}>
+                  {sk.label}
+                </span>
+                <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${isFisico ? 'bg-yellow-400' : 'bg-primary'}`}
+                    style={{
+                      width: `${skillValues[i]}%`,
+                      boxShadow: isFisico ? '0 0 3px #facc15' : '0 0 3px hsl(var(--primary)/0.5)',
+                    }}
+                  />
+                </div>
+                <span className={`font-mono text-[8px] w-5 text-right flex-shrink-0 ${isFisico ? 'text-yellow-400' : 'text-primary'}`}>
+                  {skillValues[i] > 0 ? Math.round(skillValues[i]) : '—'}
+                </span>
               </div>
-              <span className="font-mono text-[8px] text-primary w-5 text-right flex-shrink-0">
-                {skillValues[i] > 0 ? Math.round(skillValues[i]) : '—'}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
-
-      {/* Físico badge — only here */}
-      {fisico > 0 && (
-        <div className="mt-2 flex items-center justify-between">
-          <span className="font-mono text-[9px] text-muted-foreground">Físico</span>
-          <div className="flex items-center gap-1.5">
-            <div className="w-16 h-1 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-yellow-400"
-                style={{ width: `${fisico}%`, boxShadow: '0 0 3px #facc15' }}
-              />
-            </div>
-            <span className="font-mono text-[10px] text-yellow-400 font-bold">{Math.round(fisico)}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -419,17 +411,18 @@ export default function AthletesByPositionPage() {
                 <div className="p-3 grid grid-cols-2 gap-3">
                   {athletes.map(athlete => {
                     const skills = getSkillsForPosition(position);
+                    const fisicoScore = getAthleteFisicoScore(athlete.id, data.evalTests, data.evalResults);
                     const skillValues = skills.map(s =>
-                      getAthleteAttributeScore(athlete.id, s.key, data.evalTests, data.evalResults)
+                      s.key === '_fisico'
+                        ? fisicoScore
+                        : getAthleteAttributeScore(athlete.id, s.key, data.evalTests, data.evalResults)
                     );
-                    const fisico = getAthleteFisicoScore(athlete.id, data.evalTests, data.evalResults);
 
                     return (
                       <AthleteCard
                         key={athlete.id}
                         athlete={athlete}
                         position={position}
-                        fisico={fisico}
                         skillValues={skillValues}
                         skillLabels={skills}
                         selected={selectedIds.includes(athlete.id)}

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useApp } from '@/lib/context';
 import { Athlete, POSITION_LABELS, Position, getAthleteAttributeScore } from '@/lib/types';
 import { RadarChart } from '@/components/RadarChart';
-import { ArrowLeft, RotateCcw, Trash2, X, ChevronDown } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Trash2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -30,10 +30,26 @@ interface RotationAnalysis {
   saque: number;
 }
 
-// Libero substitution state: libero is on court replacing a central in back row
-interface LiberoSub {
-  liberoId: string;
-  replacedId: string; // central player replaced
+// Pure helper: automatically substitute libero for any central at P5 or P1 (back corners)
+// The libero must not already be in the formation
+function applyAutoLiberoSub(
+  formation: Record<CourtPosition, string | null>,
+  athletes: Athlete[],
+): Record<CourtPosition, string | null> {
+  const assigned = new Set(Object.values(formation).filter(Boolean) as string[]);
+  // Find a libero that is NOT already assigned to a court position
+  const libero = athletes.find(a => a.position === 'libero' && !assigned.has(a.id));
+  if (!libero) return formation;
+
+  const eff = { ...formation };
+  // P5 (back-left) and P1 (back-right) are the central's back-row positions per the rotation cycle
+  for (const pos of ['P5', 'P1'] as CourtPosition[]) {
+    const id = eff[pos];
+    if (id && athletes.find(a => a.id === id)?.position === 'central') {
+      eff[pos] = libero.id;
+    }
+  }
+  return eff;
 }
 
 function analyzeFormation(
@@ -213,8 +229,6 @@ export default function TacticalSystemPage() {
     P1: null, P2: null, P3: null, P4: null, P5: null, P6: null,
   });
   const [selectingPosition, setSelectingPosition] = useState<CourtPosition | null>(null);
-  const [liberoSub, setLiberoSub] = useState<LiberoSub | null>(null);
-  const [showLiberoConfig, setShowLiberoConfig] = useState(false);
 
   const teamAthletes = useMemo(
     () => data.athletes.filter(a => a.teamId === selectedTeamId),
@@ -222,6 +236,25 @@ export default function TacticalSystemPage() {
   );
 
   const assignedIds = useMemo(() => new Set(Object.values(formation).filter(Boolean) as string[]), [formation]);
+
+  // Effective formation: auto libero sub applied for rendering + analysis
+  const effectiveFormation = useMemo(
+    () => applyAutoLiberoSub(formation, teamAthletes),
+    [formation, teamAthletes]
+  );
+
+  // Which positions have an auto libero sub active (central replaced by libero)
+  const autoSubPositions = useMemo(() => {
+    const positions = new Set<CourtPosition>();
+    for (const pos of ['P5', 'P1'] as CourtPosition[]) {
+      const id = formation[pos];
+      if (id && teamAthletes.find(a => a.id === id)?.position === 'central' &&
+          effectiveFormation[pos] !== id) {
+        positions.add(pos);
+      }
+    }
+    return positions;
+  }, [formation, effectiveFormation, teamAthletes]);
 
   const getAthlete = (id: string | null): Athlete | undefined =>
     id ? teamAthletes.find(a => a.id === id) : undefined;
@@ -242,41 +275,22 @@ export default function TacticalSystemPage() {
 
   const clearFormation = () => {
     setFormation({ P1: null, P2: null, P3: null, P4: null, P5: null, P6: null });
-    setLiberoSub(null);
   };
 
+  // Rotation uses the real formation (central stays tracked); effectiveFormation handles the visual libero sub
   const handleRotation = () => {
     setFormation(prev => {
       const next: Record<CourtPosition, string | null> = { P1: null, P2: null, P3: null, P4: null, P5: null, P6: null };
       for (const pos of COURT_POSITIONS) {
         next[ROTATION_MAP[pos]] = prev[pos];
       }
-
-      // Handle libero substitution: if libero would go to net, swap with replaced player
-      if (liberoSub) {
-        const liberoNextPos = (Object.entries(next) as [CourtPosition, string | null][])
-          .find(([, id]) => id === liberoSub.liberoId)?.[0];
-
-        if (liberoNextPos && NET_POSITIONS.includes(liberoNextPos)) {
-          // Libero can't go to net: replace them with the central they substituted
-          next[liberoNextPos] = liberoSub.replacedId;
-          // Find a back position for libero — put them in the position the replaced player came from
-          const replacedNewPos = (Object.entries(next) as [CourtPosition, string | null][])
-            .find(([, id]) => id === liberoSub.replacedId && id !== liberoSub.replacedId)?.[0];
-          if (replacedNewPos && BACK_POSITIONS.includes(replacedNewPos)) {
-            // Already handled
-          }
-          // The libero sits out this rotation if they'd be at net
-        }
-      }
-
       return next;
     });
   };
 
   const analysis = useMemo(
-    () => analyzeFormation(formation, teamAthletes, data.evalTests, data.evalResults),
-    [formation, teamAthletes, data.evalTests, data.evalResults]
+    () => analyzeFormation(effectiveFormation, teamAthletes, data.evalTests, data.evalResults),
+    [effectiveFormation, teamAthletes, data.evalTests, data.evalResults]
   );
 
   const hasPlayersOnCourt = COURT_POSITIONS.some(p => formation[p]);
@@ -284,8 +298,8 @@ export default function TacticalSystemPage() {
   const strength = useMemo(() => hasPlayersOnCourt ? getRotationStrength(analysis) : null, [analysis, hasPlayersOnCourt]);
 
   const insights = useMemo(
-    () => hasPlayersOnCourt ? generateInsights(formation, teamAthletes, analysis) : { fortes: [], fracos: [] },
-    [formation, teamAthletes, analysis, hasPlayersOnCourt]
+    () => hasPlayersOnCourt ? generateInsights(effectiveFormation, teamAthletes, analysis) : { fortes: [], fracos: [] },
+    [effectiveFormation, teamAthletes, analysis, hasPlayersOnCourt]
   );
 
   const radarLabels = ['Ataque', 'Bloqueio', 'Passe', 'Defesa', 'Saque'];
@@ -299,7 +313,9 @@ export default function TacticalSystemPage() {
     const history: { rotation: number; analysis: RotationAnalysis }[] = [];
     let current = { ...formation };
     for (let i = 0; i < 6; i++) {
-      history.push({ rotation: i + 1, analysis: analyzeFormation(current, teamAthletes, data.evalTests, data.evalResults) });
+      // Apply auto libero sub at each rotation step for accurate analysis
+      const eff = applyAutoLiberoSub(current, teamAthletes);
+      history.push({ rotation: i + 1, analysis: analyzeFormation(eff, teamAthletes, data.evalTests, data.evalResults) });
       const next: Record<CourtPosition, string | null> = { P1: null, P2: null, P3: null, P4: null, P5: null, P6: null };
       for (const pos of COURT_POSITIONS) next[ROTATION_MAP[pos]] = current[pos];
       current = next;
@@ -421,59 +437,31 @@ export default function TacticalSystemPage() {
         </div>
         <div className="absolute flex justify-around px-[10%]" style={{ top: '22%', left: 0, right: 0 }}>
           {(['P4', 'P3', 'P2'] as CourtPosition[]).map(pos => (
-            <CourtPositionCircle key={pos} pos={pos} athlete={getAthlete(formation[pos])} isNet={true}
+            <CourtPositionCircle key={pos} pos={pos}
+              athlete={getAthlete(effectiveFormation[pos])}
+              isNet={true}
+              isSub={autoSubPositions.has(pos)}
               onClick={() => setSelectingPosition(pos)} />
           ))}
         </div>
         <div className="absolute flex justify-around px-[10%]" style={{ top: '65%', left: 0, right: 0 }}>
           {(['P5', 'P6', 'P1'] as CourtPosition[]).map(pos => (
-            <CourtPositionCircle key={pos} pos={pos} athlete={getAthlete(formation[pos])} isNet={false}
+            <CourtPositionCircle key={pos} pos={pos}
+              athlete={getAthlete(effectiveFormation[pos])}
+              isNet={false}
+              isSub={autoSubPositions.has(pos)}
               onClick={() => setSelectingPosition(pos)} />
           ))}
         </div>
       </div>
 
-      {/* Libero config */}
-      {teamAthletes.some(a => a.position === 'libero') && (
-        <div className="mb-4 max-w-sm mx-auto w-full">
-          <button
-            onClick={() => setShowLiberoConfig(!showLiberoConfig)}
-            className="w-full flex items-center justify-between px-3 py-2 rounded border border-border text-muted-foreground font-mono text-[10px] hover:border-primary/30 transition-all"
-          >
-            <span>Configurar substituição do líbero</span>
-            <ChevronDown className={`w-3 h-3 transition-transform ${showLiberoConfig ? 'rotate-180' : ''}`} />
-          </button>
-          {showLiberoConfig && (
-            <div className="mt-2 card-surface border border-border rounded p-3 space-y-2">
-              <p className="font-body text-[10px] text-muted-foreground">Selecione o central que o líbero está substituindo:</p>
-              <div className="space-y-1">
-                {teamAthletes.filter(a => a.position === 'central').map(central => {
-                  const libero = teamAthletes.find(a => a.position === 'libero' && assignedIds.has(a.id));
-                  const selected = liberoSub?.replacedId === central.id;
-                  return (
-                    <button key={central.id}
-                      onClick={() => {
-                        if (libero) {
-                          setLiberoSub(selected ? null : { liberoId: libero.id, replacedId: central.id });
-                        }
-                      }}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all ${
-                        selected ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/20'
-                      }`}
-                    >
-                      <span className="font-mono text-[10px]">#{central.number} {central.name}</span>
-                      {selected && <span className="font-mono text-[9px] text-primary ml-auto">substituto pelo líbero</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              {liberoSub && (
-                <button onClick={() => setLiberoSub(null)} className="font-mono text-[10px] text-destructive hover:underline">
-                  Remover substituição
-                </button>
-              )}
-            </div>
-          )}
+      {/* Auto libero sub info banner */}
+      {autoSubPositions.size > 0 && (
+        <div className="mb-4 max-w-sm mx-auto w-full flex items-center gap-2 px-3 py-2 rounded border border-green-500/30 bg-green-500/5">
+          <span className="text-xs">🟡</span>
+          <p className="font-mono text-[10px] text-green-400">
+            Líbero substituindo central automaticamente em {[...autoSubPositions].join(', ')}
+          </p>
         </div>
       )}
 
@@ -671,26 +659,46 @@ export default function TacticalSystemPage() {
   );
 }
 
-function CourtPositionCircle({ pos, athlete, isNet, onClick }: {
-  pos: CourtPosition; athlete?: Athlete; isNet: boolean; onClick: () => void;
+function CourtPositionCircle({ pos, athlete, isNet, isSub, onClick }: {
+  pos: CourtPosition; athlete?: Athlete; isNet: boolean; isSub?: boolean; onClick: () => void;
 }) {
   const isLibero = athlete?.position === 'libero';
+  const isCentral = athlete?.position === 'central';
+
+  // isSub: libero auto-substituted here (visual: green border + indicator)
+  const borderCls = isSub
+    ? 'border-green-400/80 shadow-[0_0_12px_rgba(74,222,128,0.35)] bg-green-400/10'
+    : isLibero
+    ? 'border-yellow-400/70 shadow-[0_0_12px_rgba(234,179,8,0.3)] bg-yellow-400/10'
+    : isCentral && isNet
+    ? 'border-purple-400/70 shadow-[0_0_12px_rgba(167,139,250,0.3)] bg-purple-400/10'
+    : isNet
+    ? 'border-primary/60 shadow-[0_0_12px_hsl(var(--primary)/0.3)] bg-primary/10'
+    : 'border-primary/30 bg-card';
+
+  const labelColor = isSub
+    ? 'text-green-400'
+    : isLibero
+    ? 'text-yellow-400'
+    : isCentral
+    ? 'text-purple-400'
+    : 'text-primary';
+
   return (
     <button onClick={onClick}
-      className={`flex flex-col items-center justify-center w-16 h-16 rounded-full border-2 transition-all ${
-        isLibero
-          ? 'border-yellow-400/70 shadow-[0_0_12px_rgba(234,179,8,0.3)] bg-yellow-400/10'
-          : isNet
-          ? 'border-primary/60 shadow-[0_0_12px_hsl(var(--primary)/0.3)] bg-primary/10'
-          : 'border-primary/30 bg-card'
-      } hover:border-primary hover:shadow-[0_0_16px_hsl(var(--primary)/0.5)]`}
+      className={`relative flex flex-col items-center justify-center w-16 h-16 rounded-full border-2 transition-all ${borderCls} hover:border-primary hover:shadow-[0_0_16px_hsl(var(--primary)/0.5)]`}
     >
+      {isSub && (
+        <span className="absolute -top-1.5 -right-1 font-mono text-[7px] bg-green-500 text-black px-1 py-0.5 rounded-full leading-none font-bold">
+          SUB
+        </span>
+      )}
       {athlete ? (
         <>
           <span className="text-[11px] font-bold text-foreground leading-tight truncate max-w-[54px]">
             {athlete.name.split(' ')[0]}
           </span>
-          <span className={`text-[8px] font-mono ${isLibero ? 'text-yellow-400' : 'text-primary'}`}>
+          <span className={`text-[8px] font-mono ${labelColor}`}>
             {POSITION_LABELS[athlete.position]}
           </span>
           <span className="text-[8px] text-muted-foreground font-mono">{pos}</span>
