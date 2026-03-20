@@ -164,6 +164,19 @@ export interface TrainingSuggestion {
   createdAt: string;
 }
 
+export type AccessLinkType = 'team' | 'athlete';
+export type AccessLinkRole = 'tecnico' | 'auxiliar';
+
+export interface LocalAccessLink {
+  id: string;
+  token: string;
+  tipo: AccessLinkType;
+  referenceId: string;
+  role: AccessLinkRole;
+  label?: string;
+  createdAt: string;
+}
+
 export interface AppData {
   teams: Team[];
   athletes: Athlete[];
@@ -175,6 +188,7 @@ export interface AppData {
   evalResults: EvalResult[];
   activeTeamId: string;
   trainingSuggestions: TrainingSuggestion[];
+  accessLinks: LocalAccessLink[];
 }
 
 export const MODULE_TYPE_LABELS: Record<ModuleType, string> = {

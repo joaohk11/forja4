@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { AppData, Athlete, Training, Macrocycle, Mesocycle, Microcycle, EvalTest, EvalResult, TrainingSuggestion, SuggestionStatus, TrainingRating } from './types';
+import { AppData, Athlete, Training, Macrocycle, Mesocycle, Microcycle, EvalTest, EvalResult, TrainingSuggestion, SuggestionStatus, TrainingRating, LocalAccessLink, AccessLinkType, AccessLinkRole } from './types';
 import { loadData, saveData, generateId } from './store';
 
 interface AppContextType {
@@ -35,6 +35,8 @@ interface AppContextType {
   importData: (json: string) => boolean;
   updateTeamName: (id: string, name: string) => void;
   updateTeamPhoto: (id: string, photo: string | undefined) => void;
+  addAccessLink: (tipo: AccessLinkType, referenceId: string, role: AccessLinkRole, label?: string) => LocalAccessLink;
+  revokeAccessLink: (token: string) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -259,6 +261,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ...d, teams: d.teams.map(t => t.id === id ? { ...t, photo } : t)
   }));
 
+  const generateToken = (): string => {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    return Array.from({ length: 24 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  };
+
+  const addAccessLink = (tipo: AccessLinkType, referenceId: string, role: AccessLinkRole, label?: string): LocalAccessLink => {
+    const link: LocalAccessLink = {
+      id: generateId(),
+      token: generateToken(),
+      tipo,
+      referenceId,
+      role,
+      label,
+      createdAt: new Date().toISOString(),
+    };
+    update(d => ({ ...d, accessLinks: [...(d.accessLinks || []), link] }));
+    return link;
+  };
+
+  const revokeAccessLink = (token: string) => update(d => ({
+    ...d, accessLinks: (d.accessLinks || []).filter(l => l.token !== token),
+  }));
+
   return (
     <AppContext.Provider value={{
       data, activeTeamId, setActiveTeam,
@@ -273,6 +298,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addEvalResult, deleteEvalResult,
       addTrainingSuggestion, updateSuggestionStatus, deleteTrainingSuggestion,
       exportData: exportDataFn, importData, updateTeamName, updateTeamPhoto,
+      addAccessLink, revokeAccessLink,
     }}>
       {children}
     </AppContext.Provider>

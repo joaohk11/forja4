@@ -1,13 +1,12 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
-
-export type AccessRole = 'viewer' | 'auxiliary' | 'coach';
+import type { AccessLinkType, AccessLinkRole } from '@/lib/types';
 
 export interface AccessLink {
   id: string;
   token: string;
-  tipo: string;
+  tipo: AccessLinkType;
   reference_id: string;
-  role: AccessRole;
+  role: AccessLinkRole;
   created_at?: string;
 }
 

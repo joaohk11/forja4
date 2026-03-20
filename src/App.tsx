@@ -23,6 +23,7 @@ import AICoachPage from "./pages/AICoachPage";
 import SuggestionsPage from "./pages/SuggestionsPage";
 import AuxiliaryPage from "./pages/AuxiliaryPage";
 import AthletesByPositionPage from "./pages/AthletesByPositionPage";
+import TokenAccessPage from "./pages/TokenAccessPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,7 +35,10 @@ const App = () => (
       <AppProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
-            {/* Auxiliary coach route — standalone, outside AppLayout */}
+            {/* Token-based access entry point — standalone, outside AppLayout */}
+            <Route path="/app" element={<TokenAccessPage />} />
+
+            {/* Auxiliary coach route — standalone, outside AppLayout (backward compat) */}
             <Route path="/auxiliar/:teamId" element={<AuxiliaryPage />} />
 
             {/* Main coach routes wrapped in AppLayout */}

@@ -18,6 +18,7 @@ const defaultData: AppData = {
   evalResults: [],
   activeTeamId: 'team-1',
   trainingSuggestions: [],
+  accessLinks: [],
 };
 
 export function loadData(): AppData {

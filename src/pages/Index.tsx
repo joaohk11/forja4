@@ -2,8 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import { MacrocycleCard } from '@/components/MacrocycleCard';
 import { HexGrid } from '@/components/HexGrid';
 import { TeamRadars } from '@/components/TeamRadars';
+import { LinkManager } from '@/components/LinkManager';
 import { useApp } from '@/lib/context';
-import { Bell, Link2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Bell, TrendingUp, TrendingDown } from 'lucide-react';
 import { useMemo } from 'react';
 import { getAthleteAttributeScore, TECHNICAL_ATTRIBUTE_LABELS, TechnicalAttribute, TECHNICAL_ATTRIBUTES } from '@/lib/types';
 
@@ -15,8 +16,6 @@ const Dashboard = () => {
   const pendingSuggestions = (data.trainingSuggestions || []).filter(
     s => s.status === 'pending' && s.teamId === activeTeamId
   );
-
-  const auxiliaryLink = `${window.location.origin}/auxiliar/${activeTeamId}`;
 
   // Team analysis
   const teamAnalysis = useMemo(() => {
@@ -66,17 +65,7 @@ const Dashboard = () => {
           {activeTeam?.name || 'Time 1'}
         </p>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              navigator.clipboard?.writeText(auxiliaryLink).catch(() => {});
-              window.open(auxiliaryLink, '_blank');
-            }}
-            className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground hover:text-primary transition-colors"
-            title="Acesso do Auxiliar"
-          >
-            <Link2 className="w-3 h-3" strokeWidth={1.5} />
-            Auxiliar
-          </button>
+          <LinkManager teamId={activeTeamId} />
           {pendingSuggestions.length > 0 && (
             <button
               onClick={() => navigate('/sugestoes')}
