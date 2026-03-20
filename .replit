@@ -5,7 +5,7 @@ integrations = ["javascript_database:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["run", "zip"]
+packages = ["run", "zip", "undollar"]
 
 [workflows]
 runButton = "Project"
