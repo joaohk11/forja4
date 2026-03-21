@@ -55,13 +55,24 @@ REGRAS:
 
     const data = await response.json();
 
-console.log("RESPOSTA GEMINI:", JSON.stringify(data, null, 2));
+if (!response.ok) {
+  return res.status(500).json({
+    error: data?.error?.message || "Erro na API do Gemini",
+  });
+}
 
-    const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      'Sem resposta da IA';
+const text =
+  data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') ||
+  null;
 
-    return res.status(200).json({ text });
+if (!text) {
+  return res.status(500).json({
+    error: "Sem resposta da IA",
+    raw: data, // 🔥 te ajuda a debuggar
+  });
+}
+
+res.status(200).json({ text });
 
   } catch (error) {
     console.error('ERRO GEMINI:', error);
