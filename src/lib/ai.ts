@@ -1,5 +1,5 @@
 // AI helper for the FORJA app — powered by Google Gemini via server
-const AI_URL = '/api/ai-coach';
+const AI_URL = '/api/gemini';
 
 export interface AIMessage {
   role: 'user' | 'assistant';
