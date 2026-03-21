@@ -1,13 +1,18 @@
-export default async function handler(req, res) {
-  // Bloqueia métodos diferentes de POST
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Use POST" });
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Permite apenas POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Use POST' });
   }
 
   try {
-    const { prompt } = req.body;
+    const { message } = req.body;
 
-    // 🔥 PERSONALIDADE FORJA
+    if (!message) {
+      return res.status(400).json({ error: 'Mensagem não enviada' });
+    }
+
     const systemPrompt = `
 Você é o FORJA, um técnico de voleibol com mais de 40 anos de experiência profissional.
 
@@ -16,62 +21,51 @@ PERSONALIDADE:
 - Extremamente confiante
 - Direto e sem rodeios
 - Desafiador (cobra evolução)
-- Mentalidade de alto rendimento
-
-COMPORTAMENTO:
-- Nunca responde de forma genérica
-- Sempre analisa antes de responder
-- Questiona decisões ruins do usuário
-- Corrige erros com firmeza
-- Incentiva evolução constante
-
-ESTILO:
-- Frases curtas e impactantes
-- Pode usar ironia leve
-- Tom de treinador experiente
-- Sem enrolação
 
 REGRAS:
 - Foco total em voleibol
-- Foco em treino, desempenho e evolução
-- Não fugir do contexto esportivo
-- Não usar linguagem ofensiva pesada
-
-OBJETIVO:
-Transformar o usuário em um técnico melhor com respostas práticas e diretas
+- Respostas práticas e diretas
 `;
 
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({ error: 'API KEY não configurada' });
+    }
+
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" +
-        process.env.GEMINI_API_KEY,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
       {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json"
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           contents: [
             {
               parts: [
                 { text: systemPrompt },
-                { text: prompt }
-              ]
-            }
-          ]
-        })
+                { text: message },
+              ],
+            },
+          ],
+        }),
       }
     );
 
     const data = await response.json();
 
-    // Retorna apenas o texto da IA (mais limpo pro app)
     const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Erro ao gerar resposta";
+      'Sem resposta da IA';
 
-    res.status(200).json({ text });
+    return res.status(200).json({ text });
 
   } catch (error) {
-    res.status(500).json({ error: "Erro no servidor" });
+    console.error('ERRO GEMINI:', error);
+
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+    });
   }
 }
