@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import type { AccessLinkType, AccessLinkRole } from '@/lib/types';
 
 export interface AccessLink {
@@ -12,8 +12,9 @@ export interface AccessLink {
 
 export const accessService = {
   async validateToken(token: string): Promise<AccessLink | null> {
-    if (!isSupabaseConfigured || !supabase) return null;
-    const { data, error } = await supabase
+    const sb = getSupabaseClient();
+    if (!sb) return null;
+    const { data, error } = await sb
       .from('access_links')
       .select('*')
       .eq('token', token)
@@ -23,8 +24,9 @@ export const accessService = {
   },
 
   async createLink(link: Omit<AccessLink, 'id' | 'created_at'>): Promise<AccessLink | null> {
-    if (!isSupabaseConfigured || !supabase) return null;
-    const { data, error } = await supabase
+    const sb = getSupabaseClient();
+    if (!sb) return null;
+    const { data, error } = await sb
       .from('access_links')
       .insert(link)
       .select()
@@ -34,8 +36,9 @@ export const accessService = {
   },
 
   async revokeToken(token: string): Promise<boolean> {
-    if (!isSupabaseConfigured || !supabase) return false;
-    const { error } = await supabase.from('access_links').delete().eq('token', token);
+    const sb = getSupabaseClient();
+    if (!sb) return false;
+    const { error } = await sb.from('access_links').delete().eq('token', token);
     if (error) { console.error('accessService.revokeToken:', error); return false; }
     return true;
   },

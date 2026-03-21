@@ -33,7 +33,7 @@ async function chamarIA(funcao: string, dados: string): Promise<string> {
   };
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -41,20 +41,27 @@ async function chamarIA(funcao: string, dados: string): Promise<string> {
     }
   );
 
+  const rawText = await response.text();
+
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Gemini error — status:', response.status, 'body:', errorText);
+    console.error('Gemini error — status:', response.status, 'body:', rawText);
     if (response.status === 429) {
-      throw new Error('Limite de requisições do Gemini atingido. Aguarde alguns minutos ou verifique sua cota em https://ai.dev/rate-limit');
+      throw new Error('Limite de requisições do Gemini atingido. Aguarde alguns minutos.');
     }
     if (response.status === 403) {
       throw new Error('Chave GEMINI_API_KEY inválida ou sem permissão. Verifique em https://aistudio.google.com/apikey');
     }
-    throw new Error(`Gemini retornou status ${response.status}: ${errorText}`);
+    throw new Error(`Gemini retornou status ${response.status}`);
   }
 
-  const data = await response.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Erro ao gerar resposta';
+  let data: any;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error('Resposta inesperada do servidor de IA. Tente novamente.');
+  }
+
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta gerada';
 }
 
 // ─── ROTA AI COACH ──────────────────────────────────────────────────────────

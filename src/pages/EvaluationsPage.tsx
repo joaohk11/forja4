@@ -11,7 +11,7 @@ import {
   getAthleteAttributeScore, getAthleteAttributeLastDate,
 } from '@/lib/types';
 
-type View = 'main' | 'physical' | 'technical' | 'attribute' | 'batch' | 'athleteRanking';
+type View = 'main' | 'physical' | 'technical' | 'attribute' | 'batch' | 'athleteRanking' | 'testHistory';
 
 const EvaluationsPage = () => {
   const navigate = useNavigate();
@@ -27,6 +27,7 @@ const EvaluationsPage = () => {
 
   const [batchTestId, setBatchTestId] = useState<string | null>(null);
   const [batchValues, setBatchValues] = useState<Record<string, string>>({});
+  const [historyTestId, setHistoryTestId] = useState<string | null>(null);
 
   const [testForm, setTestForm] = useState({
     name: '',
@@ -58,10 +59,16 @@ const EvaluationsPage = () => {
 
   const handleBack = () => {
     if (view === 'batch') setView('attribute');
+    else if (view === 'testHistory') setView('attribute');
     else if (view === 'athleteRanking') setView(selectedCategory);
     else if (view === 'attribute') setView(selectedCategory);
     else if (view === 'physical' || view === 'technical') setView('main');
     else navigate(-1);
+  };
+
+  const handleOpenHistory = (testId: string) => {
+    setHistoryTestId(testId);
+    setView('testHistory');
   };
 
   const resetTestForm = () => {
@@ -215,6 +222,63 @@ const EvaluationsPage = () => {
                       />
                     </div>
                   )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Test History View ──
+  if (view === 'testHistory' && historyTestId) {
+    const test = (data.evalTests || []).find(t => t.id === historyTestId);
+    if (!test) return null;
+    const allResults = (data.evalResults || [])
+      .filter(r => r.testId === historyTestId)
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    // Group by athlete for summary
+    const byAthlete = teamAthletes.map(athlete => {
+      const results = allResults.filter(r => r.athleteId === athlete.id)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      return { athlete, results };
+    }).filter(d => d.results.length > 0);
+
+    return (
+      <div className="px-4 py-6">
+        <button onClick={handleBack} className="flex items-center gap-1 text-muted-foreground hover:text-primary font-mono text-xs mb-4">
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.5} /> Voltar
+        </button>
+        <h2 className="font-mono text-lg font-bold neon-text mb-1">{test.name}</h2>
+        <p className="font-mono text-[10px] text-muted-foreground mb-4">Histórico completo de avaliações</p>
+
+        {byAthlete.length === 0 ? (
+          <p className="text-center text-muted-foreground font-body text-sm py-8">Nenhuma avaliação registrada</p>
+        ) : (
+          <div className="space-y-3">
+            {byAthlete.map(({ athlete, results }) => (
+              <div key={athlete.id} className="card-surface neon-border rounded-md p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center font-mono text-[10px] text-primary">
+                    {athlete.number}
+                  </div>
+                  <span className="font-mono text-xs text-foreground">{athlete.name}</span>
+                  <span className="font-mono text-[9px] text-muted-foreground ml-auto">{results.length} avaliação(ões)</span>
+                </div>
+                <div className="space-y-1">
+                  {results.map((r, idx) => (
+                    <div key={r.id} className="flex items-center justify-between text-[10px] font-mono">
+                      <span className={`${idx === 0 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+                        {idx === 0 ? '● Mais recente' : `· ${r.date}`}
+                      </span>
+                      {idx === 0 && <span className="text-muted-foreground">{r.date}</span>}
+                      <span className={`${idx === 0 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+                        {r.rawValue} → {r.convertedScore}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -477,22 +541,44 @@ const EvaluationsPage = () => {
                   </button>
                 </div>
               </div>
-              {results.length > 0 && (
-                <div className="mt-2 border-t border-border pt-2 space-y-1">
-                  {results.slice(-5).reverse().map(r => {
-                    const athlete = data.athletes.find(a => a.id === r.athleteId);
-                    return (
-                      <div key={r.id} className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="text-muted-foreground">{athlete?.name || '?'}</span>
-                        <span className="text-foreground">
-                          {r.rawValue} → <span className="text-primary">{r.convertedScore}</span>
-                        </span>
-                        <span className="text-muted-foreground">{r.date}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              {results.length > 0 && (() => {
+                // Show only most recent result per athlete
+                const latestByAthlete = new Map<string, typeof results[0]>();
+                results.forEach(r => {
+                  const existing = latestByAthlete.get(r.athleteId);
+                  if (!existing || r.date > existing.date) latestByAthlete.set(r.athleteId, r);
+                });
+                const latestResults = [...latestByAthlete.values()]
+                  .sort((a, b) => b.convertedScore - a.convertedScore);
+                return (
+                  <div className="mt-2 border-t border-border pt-2">
+                    <div className="space-y-1">
+                      {latestResults.map(r => {
+                        const athlete = data.athletes.find(a => a.id === r.athleteId);
+                        const count = results.filter(x => x.athleteId === r.athleteId).length;
+                        return (
+                          <div key={r.id} className="flex items-center justify-between text-[10px] font-mono">
+                            <span className="text-muted-foreground truncate max-w-[120px]">{athlete?.name || '?'}</span>
+                            <span className="text-foreground">
+                              {r.rawValue} → <span className="text-primary font-bold">{r.convertedScore}</span>
+                            </span>
+                            <span className="text-muted-foreground">{r.date}</span>
+                            {count > 1 && (
+                              <span className="font-mono text-[8px] text-primary/60">{count}×</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => handleOpenHistory(test.id)}
+                      className="mt-2 font-mono text-[9px] text-primary/70 hover:text-primary transition-colors flex items-center gap-1"
+                    >
+                      Ver histórico completo →
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

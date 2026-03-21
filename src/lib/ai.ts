@@ -26,7 +26,14 @@ export async function streamAI({
       body: JSON.stringify({ messages, context }),
     });
 
-    const data = await resp.json().catch(() => ({ error: 'Resposta inválida do servidor' }));
+    let data: { text?: string; error?: string };
+    try {
+      data = await resp.json();
+    } catch {
+      onError?.(`Erro ${resp.status}: resposta inválida do servidor`);
+      onDone();
+      return;
+    }
 
     if (!resp.ok) {
       onError?.(data.error || `Erro ${resp.status}`);
@@ -51,7 +58,7 @@ export async function streamAI({
 
     onDone();
   } catch (e) {
-    onError?.(e instanceof Error ? e.message : 'Erro desconhecido');
+    onError?.(e instanceof Error ? e.message : 'Erro de conexão');
     onDone();
   }
 }

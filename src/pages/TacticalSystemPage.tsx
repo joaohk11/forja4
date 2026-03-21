@@ -30,20 +30,29 @@ interface RotationAnalysis {
   saque: number;
 }
 
-// Pure helper: automatically substitute libero for any central at P5 or P1 (back corners)
-// The libero must not already be in the formation
+// All back positions where the libero can legally substitute
+const LIBERO_ELIGIBLE_POSITIONS: CourtPosition[] = ['P5', 'P6', 'P1'];
+
 function applyAutoLiberoSub(
   formation: Record<CourtPosition, string | null>,
   athletes: Athlete[],
+  liberoId?: string | null,
 ): Record<CourtPosition, string | null> {
   const assigned = new Set(Object.values(formation).filter(Boolean) as string[]);
-  // Find a libero that is NOT already assigned to a court position
-  const libero = athletes.find(a => a.position === 'libero' && !assigned.has(a.id));
+
+  // Use the selected libero; if not provided, find any libero not already on court
+  let libero: Athlete | undefined;
+  if (liberoId) {
+    libero = athletes.find(a => a.id === liberoId && !assigned.has(a.id));
+  }
+  if (!libero) {
+    libero = athletes.find(a => a.position === 'libero' && !assigned.has(a.id));
+  }
   if (!libero) return formation;
 
   const eff = { ...formation };
-  // P5 (back-left) and P1 (back-right) are the central's back-row positions per the rotation cycle
-  for (const pos of ['P5', 'P1'] as CourtPosition[]) {
+  // Libero substitutes centrals in ALL back-row positions (P5, P6, P1)
+  for (const pos of LIBERO_ELIGIBLE_POSITIONS) {
     const id = eff[pos];
     if (id && athletes.find(a => a.id === id)?.position === 'central') {
       eff[pos] = libero.id;
@@ -229,24 +238,27 @@ export default function TacticalSystemPage() {
     P1: null, P2: null, P3: null, P4: null, P5: null, P6: null,
   });
   const [selectingPosition, setSelectingPosition] = useState<CourtPosition | null>(null);
+  const [selectedLiberoId, setSelectedLiberoId] = useState<string | null>(null);
 
   const teamAthletes = useMemo(
     () => data.athletes.filter(a => a.teamId === selectedTeamId),
     [data.athletes, selectedTeamId]
   );
 
+  const liberos = useMemo(() => teamAthletes.filter(a => a.position === 'libero'), [teamAthletes]);
+
   const assignedIds = useMemo(() => new Set(Object.values(formation).filter(Boolean) as string[]), [formation]);
 
   // Effective formation: auto libero sub applied for rendering + analysis
   const effectiveFormation = useMemo(
-    () => applyAutoLiberoSub(formation, teamAthletes),
-    [formation, teamAthletes]
+    () => applyAutoLiberoSub(formation, teamAthletes, selectedLiberoId),
+    [formation, teamAthletes, selectedLiberoId]
   );
 
   // Which positions have an auto libero sub active (central replaced by libero)
   const autoSubPositions = useMemo(() => {
     const positions = new Set<CourtPosition>();
-    for (const pos of ['P5', 'P1'] as CourtPosition[]) {
+    for (const pos of LIBERO_ELIGIBLE_POSITIONS) {
       const id = formation[pos];
       if (id && teamAthletes.find(a => a.id === id)?.position === 'central' &&
           effectiveFormation[pos] !== id) {
@@ -455,12 +467,46 @@ export default function TacticalSystemPage() {
         </div>
       </div>
 
+      {/* Libero selector (shown when team has liberos) */}
+      {liberos.length > 0 && (
+        <div className="mb-3 max-w-sm mx-auto w-full">
+          <div className="flex items-center gap-2 px-3 py-2 rounded border border-border bg-card">
+            <span className="font-mono text-[10px] text-muted-foreground shrink-0">Líbero:</span>
+            <div className="flex gap-1.5 flex-wrap">
+              <button
+                onClick={() => setSelectedLiberoId(null)}
+                className={`font-mono text-[10px] px-2 py-1 rounded border transition-all ${
+                  selectedLiberoId === null
+                    ? 'border-yellow-400/70 text-yellow-400 bg-yellow-400/10'
+                    : 'border-border text-muted-foreground hover:border-yellow-400/30'
+                }`}
+              >
+                Auto
+              </button>
+              {liberos.map(l => (
+                <button
+                  key={l.id}
+                  onClick={() => setSelectedLiberoId(selectedLiberoId === l.id ? null : l.id)}
+                  className={`font-mono text-[10px] px-2 py-1 rounded border transition-all ${
+                    selectedLiberoId === l.id
+                      ? 'border-yellow-400/70 text-yellow-400 bg-yellow-400/10'
+                      : 'border-border text-muted-foreground hover:border-yellow-400/30'
+                  }`}
+                >
+                  #{l.number} {l.name.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Auto libero sub info banner */}
       {autoSubPositions.size > 0 && (
         <div className="mb-4 max-w-sm mx-auto w-full flex items-center gap-2 px-3 py-2 rounded border border-green-500/30 bg-green-500/5">
           <span className="text-xs">🟡</span>
           <p className="font-mono text-[10px] text-green-400">
-            Líbero substituindo central automaticamente em {[...autoSubPositions].join(', ')}
+            Líbero substituindo central em {[...autoSubPositions].join(', ')}
           </p>
         </div>
       )}

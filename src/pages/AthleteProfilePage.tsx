@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/lib/context';
 import { RadarChart } from '@/components/RadarChart';
@@ -9,8 +9,9 @@ import {
   calculateAthleteLevel, getAthleteAttributeScore, getAthleteAttributeLastDate,
   TechnicalAttribute,
 } from '@/lib/types';
-import { ArrowLeft, User, Camera, Trash2, Star, Brain, Sparkles } from 'lucide-react';
+import { ArrowLeft, User, Camera, Trash2, Star, Brain, Sparkles, TrendingUp, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { EvolutionChart, getAvailableAttrs, getLabel } from '@/components/EvolutionChart';
 
 const formatAttrDate = (dateStr: string | null): string => {
   if (!dateStr) return '';
@@ -33,6 +34,10 @@ const AthleteProfilePage = () => {
   const { data, updateAthlete } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [showEvolution, setShowEvolution] = useState(false);
+  const [evoAttr1, setEvoAttr1] = useState<string>('_fisico');
+  const [evoAttr2, setEvoAttr2] = useState<string | null>(null);
+
   const athlete = data.athletes.find(a => a.id === id);
   const team = athlete ? data.teams.find(t => t.id === athlete.teamId) : null;
 
@@ -44,6 +49,11 @@ const AthleteProfilePage = () => {
     }
     return TECHNICAL_ATTRIBUTES.filter(a => a !== 'levantamento');
   }, [athlete]);
+
+  const availableEvoAttrs = useMemo(
+    () => (athlete ? getAvailableAttrs(athlete.position) : []),
+    [athlete]
+  );
 
   const physicalScores = useMemo(() => {
     if (!athlete) return PHYSICAL_ATTRIBUTES.map(() => 0);
@@ -78,6 +88,12 @@ const AthleteProfilePage = () => {
     return calculateAthleteLevel(athlete.id, data.evalTests || [], data.evalResults || []);
   }, [athlete, data.evalTests, data.evalResults]);
 
+  // Check if athlete has any eval results (to show evolution button)
+  const hasEvalData = useMemo(() => {
+    if (!athlete) return false;
+    return (data.evalResults || []).some(r => r.athleteId === athlete.id);
+  }, [athlete, data.evalResults]);
+
   if (!athlete) {
     return (
       <div className="px-4 py-12 text-center">
@@ -107,6 +123,14 @@ const AthleteProfilePage = () => {
           <ArrowLeft className="w-4 h-4" strokeWidth={1.5} /> Voltar
         </button>
         <div className="flex gap-2">
+          {hasEvalData && (
+            <button
+              onClick={() => setShowEvolution(true)}
+              className="flex items-center gap-1 text-primary font-mono text-[10px] hover:neon-text"
+            >
+              <TrendingUp className="w-3.5 h-3.5" /> Evolução
+            </button>
+          )}
           <button
             onClick={() => navigate(`/ia-treinador?tab=atleta&athleteId=${athlete.id}`)}
             className="flex items-center gap-1 text-primary font-mono text-[10px] hover:neon-text"
@@ -191,7 +215,7 @@ const AthleteProfilePage = () => {
                 </div>
                 {physicalDates[i] && (
                   <p className="font-mono text-[8px] text-muted-foreground text-right mt-0.5 pl-24">
-                    Última atualização: {formatAttrDate(physicalDates[i])}
+                    Última avaliação: {formatAttrDate(physicalDates[i])}
                   </p>
                 )}
               </div>
@@ -222,7 +246,7 @@ const AthleteProfilePage = () => {
                 </div>
                 {technicalDates[i] && (
                   <p className="font-mono text-[8px] text-muted-foreground text-right mt-0.5 pl-28">
-                    Última atualização: {formatAttrDate(technicalDates[i])}
+                    Última avaliação: {formatAttrDate(technicalDates[i])}
                   </p>
                 )}
               </div>
@@ -237,6 +261,95 @@ const AthleteProfilePage = () => {
         <div className="mx-4 mt-4 card-surface neon-border rounded-lg p-4">
           <h3 className="font-mono text-xs text-muted-foreground uppercase tracking-widest mb-2">Observação</h3>
           <p className="font-body text-sm text-foreground">{athlete.observation}</p>
+        </div>
+      )}
+
+      {/* Evolution Modal */}
+      {showEvolution && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowEvolution(false); }}>
+          <div className="w-full max-w-lg bg-card border border-border rounded-t-2xl p-5 pb-8 space-y-4"
+            style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-mono text-sm font-bold neon-text flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" /> Evolução do Atleta
+                </h3>
+                <p className="font-mono text-[10px] text-muted-foreground">{athlete.name}</p>
+              </div>
+              <button onClick={() => setShowEvolution(false)} className="p-1.5 rounded text-muted-foreground hover:text-primary">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Attribute 1 selector */}
+            <div>
+              <p className="font-mono text-[10px] text-muted-foreground mb-1.5">Habilidade principal</p>
+              <div className="flex flex-wrap gap-1.5">
+                {availableEvoAttrs.map(attr => (
+                  <button
+                    key={attr}
+                    onClick={() => { setEvoAttr1(attr); if (evoAttr2 === attr) setEvoAttr2(null); }}
+                    className={`font-mono text-[9px] px-2 py-1 rounded border transition-all ${
+                      evoAttr1 === attr
+                        ? 'border-primary text-primary bg-primary/10'
+                        : 'border-border text-muted-foreground hover:border-primary/30'
+                    }`}
+                  >
+                    {getLabel(attr)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Attribute 2 selector (optional) */}
+            <div>
+              <p className="font-mono text-[10px] text-muted-foreground mb-1.5">Comparar com (opcional)</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setEvoAttr2(null)}
+                  className={`font-mono text-[9px] px-2 py-1 rounded border transition-all ${
+                    evoAttr2 === null
+                      ? 'border-amber-400/70 text-amber-400 bg-amber-400/10'
+                      : 'border-border text-muted-foreground hover:border-amber-400/30'
+                  }`}
+                >
+                  Nenhum
+                </button>
+                {availableEvoAttrs.filter(a => a !== evoAttr1).map(attr => (
+                  <button
+                    key={attr}
+                    onClick={() => setEvoAttr2(evoAttr2 === attr ? null : attr)}
+                    className={`font-mono text-[9px] px-2 py-1 rounded border transition-all ${
+                      evoAttr2 === attr
+                        ? 'border-amber-400/70 text-amber-400 bg-amber-400/10'
+                        : 'border-border text-muted-foreground hover:border-amber-400/30'
+                    }`}
+                  >
+                    {getLabel(attr)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Chart */}
+            <div className="card-surface border border-border rounded-lg p-4">
+              <EvolutionChart
+                athleteId={athlete.id}
+                evalTests={data.evalTests || []}
+                evalResults={data.evalResults || []}
+                attr1={evoAttr1}
+                attr2={evoAttr2}
+                width={320}
+                height={180}
+              />
+            </div>
+
+            <p className="font-mono text-[9px] text-muted-foreground text-center">
+              Cada ponto = avaliação registrada · Mostrando todas as avaliações históricas
+            </p>
+          </div>
         </div>
       )}
     </div>
