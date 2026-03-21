@@ -1,3 +1,4 @@
+import { getSupabaseClient } from '../lib/supabaseClient';
 import { useState, useEffect } from 'react';
 import { useApp } from '@/lib/context';
 import { Download, Upload, AlertTriangle, Cloud, CloudDownload, Settings, Check, Loader2, Trash2 } from 'lucide-react';
