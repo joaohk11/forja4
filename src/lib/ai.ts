@@ -17,19 +17,22 @@ export async function streamAI({
   onError?: (error: string) => void;
 }) {
   try {
-    const response = await fetch('/api/gemini', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    message: input,
-  }),
-});
+    // pega a última mensagem do usuário
+    const lastMessage = messages[messages.length - 1]?.content || '';
 
-const data = await response.json();
+    const resp = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: lastMessage,
+        context,
+      }),
+    });
 
     let data: { text?: string; error?: string };
+
     try {
       data = await resp.json();
     } catch {
@@ -50,13 +53,15 @@ const data = await response.json();
       return;
     }
 
-    // Simulate progressive rendering word-by-word for better UX
+    // efeito de digitação (UX melhor)
     const words = data.text.split(' ');
     for (let i = 0; i < words.length; i++) {
       const chunk = (i === 0 ? '' : ' ') + words[i];
       onDelta(chunk);
-      // Tiny pause every 8 words so it feels live
-      if (i % 8 === 0) await new Promise(r => setTimeout(r, 20));
+
+      if (i % 8 === 0) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
     }
 
     onDone();
