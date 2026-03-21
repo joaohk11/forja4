@@ -55,6 +55,8 @@ REGRAS:
 
     const data = await response.json();
 
+console.log("RESPOSTA GEMINI:", JSON.stringify(data, null, 2));
+
     const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
       'Sem resposta da IA';
