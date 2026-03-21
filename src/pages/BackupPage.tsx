@@ -1,12 +1,13 @@
 import { supabase } from '../lib/supabaseClient';
 import { useState, useEffect } from 'react';
 import { useApp } from '@/lib/context';
-import { Download, Upload, AlertTriangle, Cloud, CloudDownload, Settings, Check, Loader2 } from 'lucide-react';
+import { Download, Upload, AlertTriangle, Cloud, CloudDownload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CloudBackup {
   id: string;
   name: string;
+  data: string;
   created_at: string;
 }
 
@@ -16,15 +17,18 @@ const BackupPage = () => {
   const [loadingCloud, setLoadingCloud] = useState(false);
   const [savingCloud, setSavingCloud] = useState(false);
 
-  // Lista backups da nuvem
   const fetchCloudBackups = async () => {
     setLoadingCloud(true);
     try {
-      const { data, error } = await supabase.from('backups').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('backups')
+        .select('*')
+        .order('created_at', { ascending: false });
+
       if (error) throw error;
       setCloudBackups(data || []);
     } catch (e) {
-      toast.error('Erro ao listar backups na nuvem. Verifique suas credenciais.');
+      toast.error('Erro ao listar backups na nuvem');
     } finally {
       setLoadingCloud(false);
     }
@@ -34,7 +38,6 @@ const BackupPage = () => {
     fetchCloudBackups();
   }, []);
 
-  // Exporta backup local
   const handleExportLocal = () => {
     const json = exportData();
     const blob = new Blob([json], { type: 'application/json' });
@@ -47,7 +50,6 @@ const BackupPage = () => {
     toast.success('Backup exportado com sucesso');
   };
 
-  // Importa backup local
   const handleImportLocal = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -55,12 +57,13 @@ const BackupPage = () => {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const success = importData(text);
-      toast[success ? 'success' : 'error'](success ? 'Backup importado com sucesso' : 'Arquivo de backup inválido');
+      toast[success ? 'success' : 'error'](
+        success ? 'Backup importado com sucesso' : 'Arquivo de backup inválido'
+      );
     };
     reader.readAsText(file);
   };
 
-  // Salva backup na nuvem
   const handleSaveCloud = async () => {
     setSavingCloud(true);
     try {
@@ -70,21 +73,23 @@ const BackupPage = () => {
       if (error) throw error;
       toast.success('Backup salvo na nuvem');
       fetchCloudBackups();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao salvar backup na nuvem');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao salvar backup na nuvem');
     } finally {
       setSavingCloud(false);
     }
   };
 
-  // Carrega backup da nuvem
   const handleLoadCloud = async (backup: CloudBackup) => {
-    if (!window.confirm(`Restaurar backup "${backup.name}"? Os dados atuais serão substituídos.`)) return;
+    if (!window.confirm(`Restaurar backup "${backup.name}"? Os dados atuais serão substituídos.`))
+      return;
     try {
-      const success = importData((backup as any).data);
-      toast[success ? 'success' : 'error'](success ? 'Backup restaurado com sucesso' : 'Dados do backup inválidos');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao restaurar backup');
+      const success = importData(backup.data);
+      toast[success ? 'success' : 'error'](
+        success ? 'Backup restaurado com sucesso' : 'Dados do backup inválidos'
+      );
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao restaurar backup');
     }
   };
 
@@ -92,7 +97,6 @@ const BackupPage = () => {
     <div className="px-4 py-6">
       <h2 className="font-mono text-sm font-medium mb-4">Backup</h2>
 
-      {/* Local Export */}
       <button
         onClick={handleExportLocal}
         className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left hover:neon-glow transition-all mb-2"
@@ -104,7 +108,6 @@ const BackupPage = () => {
         </div>
       </button>
 
-      {/* Local Import */}
       <label className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left cursor-pointer hover:neon-glow transition-all mb-2 block">
         <Upload className="w-6 h-6 text-primary" strokeWidth={1.5} />
         <div>
@@ -114,7 +117,6 @@ const BackupPage = () => {
         <input type="file" accept=".json" onChange={handleImportLocal} className="hidden" />
       </label>
 
-      {/* Cloud Save */}
       <button
         onClick={handleSaveCloud}
         disabled={savingCloud}
@@ -127,7 +129,6 @@ const BackupPage = () => {
         </div>
       </button>
 
-      {/* Cloud List */}
       <div className="card-surface rounded-lg border border-border/40 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
           <p className="font-mono text-xs text-foreground">Backups na Nuvem</p>
@@ -161,7 +162,6 @@ const BackupPage = () => {
         )}
       </div>
 
-      {/* Info */}
       <div className="card-surface rounded-lg p-4 flex items-start gap-3 border border-status-partial/30 mt-4">
         <AlertTriangle className="w-5 h-5 text-status-partial flex-shrink-0 mt-0.5" strokeWidth={1.5} />
         <div>
