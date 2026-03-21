@@ -20,11 +20,17 @@ export async function streamAI({
   onError?: (error: string) => void;
 }) {
   try {
-    const resp = await fetch(AI_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, context }),
-    });
+    const response = await fetch('/api/gemini', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    message: input,
+  }),
+});
+
+const data = await response.json();
 
     let data: { text?: string; error?: string };
     try {
