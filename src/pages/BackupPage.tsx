@@ -1,4 +1,3 @@
-// pages/BackupPage.tsx
 import { supabase } from '../lib/supabaseClient';
 import { useState, useEffect } from 'react';
 import { useApp } from '../lib/context';
@@ -8,8 +7,8 @@ import { toast } from 'sonner';
 interface CloudBackup {
   id: string;
   name: string;
-  data: string;
   created_at: string;
+  data: string;
 }
 
 const BackupPage = () => {
@@ -58,9 +57,8 @@ const BackupPage = () => {
   const handleImportLocal = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (ev: ProgressEvent<FileReader>) => {
+    reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const success = importData(text);
       if (success) toast.success('Backup importado com sucesso');
@@ -150,7 +148,9 @@ const BackupPage = () => {
           )}
           <div>
             <p className="font-mono text-sm text-foreground">Salvar Backup na Nuvem</p>
-            <p className="font-body text-[10px] text-muted-foreground">Salvar dados no Supabase</p>
+            <p className="font-body text-[10px] text-muted-foreground">
+              Salvar dados no Supabase
+            </p>
           </div>
         </button>
 
