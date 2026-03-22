@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { useState, useEffect } from 'react';
-import { useApp } from '../lib/context';
-import { Download, Upload, AlertTriangle, Cloud, CloudDownload, Loader2, Settings, Check } from 'lucide-react';
+import { useApp } from '@/lib/context';
+import { Download, Upload, AlertTriangle, Cloud, CloudDownload, Settings, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CloudBackup {
@@ -38,7 +38,6 @@ const BackupPage = () => {
 
   const hasConfig = configSaved && config.url && config.key;
 
-  // --- Save Supabase config ---
   const saveConfig = () => {
     if (!config.url || !config.key) {
       toast.error('Preencha a URL e a chave do Supabase');
@@ -77,7 +76,7 @@ const BackupPage = () => {
   // --- Export local backup ---
   const handleExportLocal = () => {
     const json = exportData();
-    localStorage.setItem(LOCAL_STORAGE_KEY, json); // salva localStorage também
+    localStorage.setItem(LOCAL_STORAGE_KEY, json); // mantém localStorage
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -95,7 +94,7 @@ const BackupPage = () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      localStorage.setItem(LOCAL_STORAGE_KEY, text); // importa para localStorage
+      localStorage.setItem(LOCAL_STORAGE_KEY, text); // salva no localStorage
       const success = importData(text);
       if (success) toast.success('Backup importado com sucesso');
       else toast.error('Arquivo de backup inválido');
@@ -142,7 +141,7 @@ const BackupPage = () => {
 
       if (error) throw error;
 
-      localStorage.setItem(LOCAL_STORAGE_KEY, data.data); // salva no localStorage
+      localStorage.setItem(LOCAL_STORAGE_KEY, data.data); // mantém localStorage
       const success = importData(data.data);
       if (success) toast.success('Backup restaurado com sucesso');
       else toast.error('Erro ao restaurar backup');
@@ -174,24 +173,25 @@ const BackupPage = () => {
             onClick={saveConfig}
             className="flex items-center gap-2 px-4 py-2 bg-primary/20 border border-primary/40 rounded text-xs font-mono text-primary hover:bg-primary/30 transition-colors"
           >
-            <Check className="w-3.5 h-3.5" />
-            Salvar Configuração
+            <Check className="w-3.5 h-3.5" /> Salvar Configuração
           </button>
         </div>
       )}
 
-      {/* Local Export / Import / Cloud Save */}
+      {/* Local Export */}
       <button onClick={handleExportLocal} className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4">
         <Download className="w-6 h-6 text-primary" strokeWidth={1.5} />
         <p className="font-mono text-sm text-foreground">Exportar Backup Local</p>
       </button>
 
+      {/* Local Import */}
       <label className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 cursor-pointer">
         <Upload className="w-6 h-6 text-primary" strokeWidth={1.5} />
         <input type="file" accept=".json" onChange={handleImportLocal} className="hidden" />
         <p className="font-mono text-sm text-foreground">Importar Backup Local</p>
       </label>
 
+      {/* Cloud Save */}
       <button onClick={handleSaveCloud} disabled={savingCloud} className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4">
         {savingCloud ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : <Cloud className="w-6 h-6 text-primary" />}
         <p className="font-mono text-sm text-foreground">Salvar Backup na Nuvem</p>
