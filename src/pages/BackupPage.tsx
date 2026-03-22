@@ -9,7 +9,6 @@ import {
   Cloud,
   CloudDownload,
   Loader2,
-  Settings,
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -48,7 +47,6 @@ const BackupPage = () => {
 
   const hasConfig = configSaved && config.url && config.key;
 
-  // --- Salvar configuração ---
   const saveConfig = () => {
     if (!config.url || !config.key) {
       toast.error('Preencha a URL e a chave do Supabase');
@@ -61,13 +59,11 @@ const BackupPage = () => {
     fetchCloudBackups();
   };
 
-  // --- Obter cliente Supabase ---
   const getClient = () => {
     if (!hasConfig) throw new Error('Supabase não configurado');
     return getSupabaseClient(config.url, config.key);
   };
 
-  // --- Buscar backups na nuvem ---
   const fetchCloudBackups = async () => {
     if (!hasConfig) return;
     setLoadingCloud(true);
@@ -92,7 +88,6 @@ const BackupPage = () => {
     if (hasConfig) fetchCloudBackups();
   }, [configSaved]);
 
-  // --- Exportar backup local ---
   const handleExportLocal = () => {
     const json = exportData();
     const blob = new Blob([json], { type: 'application/json' });
@@ -105,7 +100,6 @@ const BackupPage = () => {
     toast.success('Backup exportado com sucesso');
   };
 
-  // --- Importar backup local ---
   const handleImportLocal = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -119,7 +113,6 @@ const BackupPage = () => {
     reader.readAsText(file);
   };
 
-  // --- Salvar backup na nuvem ---
   const handleSaveCloud = async () => {
     if (!hasConfig) {
       setShowConfig(true);
@@ -150,7 +143,6 @@ const BackupPage = () => {
     }
   };
 
-  // --- Carregar backup da nuvem ---
   const handleLoadCloud = async (backup: CloudBackup) => {
     if (!window.confirm(`Restaurar backup "${backup.name}"? Os dados atuais serão substituídos.`))
       return;
@@ -234,52 +226,6 @@ const BackupPage = () => {
             <p className="font-body text-[10px] text-muted-foreground">Salvar dados no Supabase</p>
           </div>
         </button>
-
-        {/* Lista Backups */}
-        <div className="card-surface rounded-lg border border-border/40 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-            <p className="font-mono text-xs text-foreground">Backups na Nuvem</p>
-            <button onClick={fetchCloudBackups} disabled={loadingCloud} className="text-[10px] text-primary hover:underline">
-              {loadingCloud ? 'Carregando...' : 'Atualizar'}
-            </button>
-          </div>
-
-          {loadingCloud ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="w-5 h-5 text-primary animate-spin" />
-            </div>
-          ) : cloudBackups.length === 0 ? (
-            <div className="px-4 py-4 text-center">
-              <p className="font-body text-[10px] text-muted-foreground">Nenhum backup na nuvem ainda.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border/30">
-              {cloudBackups.map((b) => (
-                <div key={b.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <p className="font-mono text-xs text-foreground">{b.name}</p>
-                    <p className="font-body text-[10px] text-muted-foreground">{new Date(b.created_at).toLocaleString('pt-BR')}</p>
-                  </div>
-                  <button onClick={() => handleLoadCloud(b)} className="flex items-center gap-1 text-[10px] text-primary hover:underline">
-                    <CloudDownload className="w-3.5 h-3.5" /> Restaurar
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="card-surface rounded-lg p-4 flex items-start gap-3 border border-status-partial/30">
-          <AlertTriangle className="w-5 h-5 text-status-partial flex-shrink-0 mt-0.5" strokeWidth={1.5} />
-          <div>
-            <p className="font-mono text-xs text-foreground mb-1">Dica de Segurança</p>
-            <p className="font-body text-[10px] text-muted-foreground">
-              Faça backups regularmente. Os dados locais ficam no navegador e podem ser perdidos ao limpar o cache.
-              Use o backup na nuvem (Supabase) para maior segurança.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );
