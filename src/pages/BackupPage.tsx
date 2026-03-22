@@ -9,6 +9,8 @@ import {
   Cloud,
   CloudDownload,
   Loader2,
+  Settings,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,6 +32,7 @@ const BackupPage = () => {
   const [loadingCloud, setLoadingCloud] = useState(false);
   const [savingCloud, setSavingCloud] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
 
   // --- Carrega credenciais do localStorage ---
   useEffect(() => {
@@ -53,6 +56,7 @@ const BackupPage = () => {
     }
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
     setConfigSaved(true);
+    setShowConfig(false);
     toast.success('Configuração salva');
     fetchCloudBackups();
   };
@@ -118,6 +122,7 @@ const BackupPage = () => {
   // --- Salvar backup na nuvem ---
   const handleSaveCloud = async () => {
     if (!hasConfig) {
+      setShowConfig(true);
       toast.error('Configure o Supabase antes de salvar');
       return;
     }
@@ -127,7 +132,6 @@ const BackupPage = () => {
       const json = exportData();
       const name = `FORJA ${new Date().toLocaleString('pt-BR')}`;
 
-      // Gera id e created_at manualmente
       const { error } = await client.from('backups').insert([{
         id: uuidv4(),
         name,
@@ -136,7 +140,6 @@ const BackupPage = () => {
       }]);
 
       if (error) throw error;
-
       toast.success('Backup salvo na nuvem');
       fetchCloudBackups();
     } catch (e) {
@@ -161,12 +164,10 @@ const BackupPage = () => {
         .single();
 
       if (error) throw error;
-
       if (!data?.data) {
         toast.error('Backup inválido ou vazio');
         return;
       }
-
       const success = importData(data.data);
       if (success) toast.success('Backup restaurado com sucesso');
       else toast.error('Erro ao restaurar backup');
@@ -178,7 +179,7 @@ const BackupPage = () => {
 
   return (
     <div className="px-4 py-6 space-y-4">
-      {/* Configuração */}
+      {/* Configuração Supabase */}
       <div className="card-surface rounded-lg p-4 mb-4 space-y-3">
         <p className="font-mono text-xs text-primary">Configuração Supabase</p>
         <input
@@ -199,92 +200,85 @@ const BackupPage = () => {
           onClick={saveConfig}
           className="flex items-center gap-2 px-4 py-2 bg-primary/20 border border-primary/40 rounded text-xs font-mono text-primary hover:bg-primary/30 transition-colors"
         >
-          Salvar Configuração
+          <Check className="w-3.5 h-3.5" /> Salvar Configuração
         </button>
       </div>
 
-      {/* Local Export */}
-      <button
-        onClick={handleExportLocal}
-        className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left hover:neon-glow transition-all"
-      >
-        <Download className="w-6 h-6 text-primary" strokeWidth={1.5} />
-        <div>
-          <p className="font-mono text-sm text-foreground">Exportar Backup Local</p>
-          <p className="font-body text-[10px] text-muted-foreground">Salvar dados em arquivo JSON</p>
-        </div>
-      </button>
-
-      {/* Local Import */}
-      <label className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left cursor-pointer hover:neon-glow transition-all block">
-        <Upload className="w-6 h-6 text-primary" strokeWidth={1.5} />
-        <div>
-          <p className="font-mono text-sm text-foreground">Importar Backup Local</p>
-          <p className="font-body text-[10px] text-muted-foreground">Restaurar dados de arquivo JSON</p>
-        </div>
-        <input type="file" accept=".json" onChange={handleImportLocal} className="hidden" />
-      </label>
-
-      {/* Cloud Backup Save */}
-      <button
-        onClick={handleSaveCloud}
-        disabled={savingCloud}
-        className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left hover:neon-glow transition-all disabled:opacity-60"
-      >
-        {savingCloud ? (
-          <Loader2 className="w-6 h-6 text-primary animate-spin" strokeWidth={1.5} />
-        ) : (
-          <Cloud className="w-6 h-6 text-primary" strokeWidth={1.5} />
-        )}
-        <div>
-          <p className="font-mono text-sm text-foreground">Salvar Backup na Nuvem</p>
-          <p className="font-body text-[10px] text-muted-foreground">Salvar dados no Supabase</p>
-        </div>
-      </button>
-
-      {/* Cloud Backups List */}
-      <div className="card-surface rounded-lg border border-border/40 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-          <p className="font-mono text-xs text-foreground">Backups na Nuvem</p>
-          <button onClick={fetchCloudBackups} disabled={loadingCloud} className="text-[10px] text-primary hover:underline">
-            {loadingCloud ? 'Carregando...' : 'Atualizar'}
-          </button>
-        </div>
-
-        {loadingCloud ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+      {/* Botões Local e Nuvem */}
+      <div className="space-y-4">
+        <button onClick={handleExportLocal} className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left hover:neon-glow transition-all">
+          <Download className="w-6 h-6 text-primary" strokeWidth={1.5} />
+          <div>
+            <p className="font-mono text-sm text-foreground">Exportar Backup Local</p>
+            <p className="font-body text-[10px] text-muted-foreground">Salvar dados em arquivo JSON</p>
           </div>
-        ) : cloudBackups.length === 0 ? (
-          <div className="px-4 py-4 text-center">
-            <p className="font-body text-[10px] text-muted-foreground">Nenhum backup na nuvem ainda.</p>
+        </button>
+
+        <label className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left cursor-pointer hover:neon-glow transition-all block">
+          <Upload className="w-6 h-6 text-primary" strokeWidth={1.5} />
+          <div>
+            <p className="font-mono text-sm text-foreground">Importar Backup Local</p>
+            <p className="font-body text-[10px] text-muted-foreground">Restaurar dados de arquivo JSON</p>
           </div>
-        ) : (
-          <div className="divide-y divide-border/30">
-            {cloudBackups.map((b) => (
-              <div key={b.id} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <p className="font-mono text-xs text-foreground">{b.name}</p>
-                  <p className="font-body text-[10px] text-muted-foreground">{new Date(b.created_at).toLocaleString('pt-BR')}</p>
+          <input type="file" accept=".json" onChange={handleImportLocal} className="hidden" />
+        </label>
+
+        <button
+          onClick={handleSaveCloud}
+          disabled={savingCloud}
+          className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left hover:neon-glow transition-all disabled:opacity-60"
+        >
+          {savingCloud ? <Loader2 className="w-6 h-6 text-primary animate-spin" strokeWidth={1.5} /> : <Cloud className="w-6 h-6 text-primary" strokeWidth={1.5} />}
+          <div>
+            <p className="font-mono text-sm text-foreground">Salvar Backup na Nuvem</p>
+            <p className="font-body text-[10px] text-muted-foreground">Salvar dados no Supabase</p>
+          </div>
+        </button>
+
+        {/* Lista Backups */}
+        <div className="card-surface rounded-lg border border-border/40 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+            <p className="font-mono text-xs text-foreground">Backups na Nuvem</p>
+            <button onClick={fetchCloudBackups} disabled={loadingCloud} className="text-[10px] text-primary hover:underline">
+              {loadingCloud ? 'Carregando...' : 'Atualizar'}
+            </button>
+          </div>
+
+          {loadingCloud ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            </div>
+          ) : cloudBackups.length === 0 ? (
+            <div className="px-4 py-4 text-center">
+              <p className="font-body text-[10px] text-muted-foreground">Nenhum backup na nuvem ainda.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border/30">
+              {cloudBackups.map((b) => (
+                <div key={b.id} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="font-mono text-xs text-foreground">{b.name}</p>
+                    <p className="font-body text-[10px] text-muted-foreground">{new Date(b.created_at).toLocaleString('pt-BR')}</p>
+                  </div>
+                  <button onClick={() => handleLoadCloud(b)} className="flex items-center gap-1 text-[10px] text-primary hover:underline">
+                    <CloudDownload className="w-3.5 h-3.5" /> Restaurar
+                  </button>
                 </div>
-                <button onClick={() => handleLoadCloud(b)} className="flex items-center gap-1 text-[10px] text-primary hover:underline">
-                  <CloudDownload className="w-3.5 h-3.5" /> Restaurar
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* Info */}
-      <div className="card-surface rounded-lg p-4 flex items-start gap-3 border border-status-partial/30">
-        <AlertTriangle className="w-5 h-5 text-status-partial flex-shrink-0 mt-0.5" strokeWidth={1.5} />
-        <div>
-          <p className="font-mono text-xs text-foreground mb-1">Dica de Segurança</p>
-          <p className="font-body text-[10px] text-muted-foreground">
-            Faça backups regularmente. Os dados locais ficam no navegador e podem ser perdidos ao limpar o cache.
-            Use o backup na nuvem (Supabase) para maior segurança.
-          </p>
+        {/* Info */}
+        <div className="card-surface rounded-lg p-4 flex items-start gap-3 border border-status-partial/30">
+          <AlertTriangle className="w-5 h-5 text-status-partial flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+          <div>
+            <p className="font-mono text-xs text-foreground mb-1">Dica de Segurança</p>
+            <p className="font-body text-[10px] text-muted-foreground">
+              Faça backups regularmente. Os dados locais ficam no navegador e podem ser perdidos ao limpar o cache.
+              Use o backup na nuvem (Supabase) para maior segurança.
+            </p>
+          </div>
         </div>
       </div>
     </div>
