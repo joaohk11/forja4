@@ -1,34 +1,38 @@
-import { getSupabaseClient } from '../lib/supabaseClient';
+// src/pages/BackupPage.tsx
 import { useState, useEffect } from 'react';
+import { getSupabaseClient } from '../lib/supabaseClient';
 import { useApp } from '@/lib/context';
-import { Download, Upload, AlertTriangle, Cloud, CloudDownload, Settings, Check, Loader2, Trash2 } from 'lucide-react';
+import {
+  Download,
+  Upload,
+  AlertTriangle,
+  Cloud,
+  CloudDownload,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
-
-const SUPABASE_CONFIG_KEY = 'forja_supabase_config';
-
-interface SupabaseConfig {
-  url: string;
-  key: string;
-}
 
 interface CloudBackup {
   id: string;
   name: string;
   created_at: string;
+  data: string;
 }
+
+const LOCAL_STORAGE_KEY = 'forja_backup_config';
 
 const BackupPage = () => {
   const { exportData, importData } = useApp();
 
-  const [config, setConfig] = useState<SupabaseConfig>({ url: '', key: '' });
-  const [showConfig, setShowConfig] = useState(false);
+  const [config, setConfig] = useState<{ url: string; key: string }>({ url: '', key: '' });
   const [cloudBackups, setCloudBackups] = useState<CloudBackup[]>([]);
   const [loadingCloud, setLoadingCloud] = useState(false);
   const [savingCloud, setSavingCloud] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
 
+  // --- Carrega credenciais do localStorage ---
   useEffect(() => {
-    const saved = localStorage.getItem(SUPABASE_CONFIG_KEY);
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -40,41 +44,50 @@ const BackupPage = () => {
 
   const hasConfig = configSaved && config.url && config.key;
 
+  // --- Salvar configuração no localStorage ---
   const saveConfig = () => {
     if (!config.url || !config.key) {
       toast.error('Preencha a URL e a chave do Supabase');
       return;
     }
-    localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(config));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
     setConfigSaved(true);
-    setShowConfig(false);
     toast.success('Configuração salva');
-    fetchCloudBackups({ url: config.url, key: config.key });
+    fetchCloudBackups();
   };
 
-  const fetchCloudBackups = async (cfg = config) => {
-    if (!cfg.url || !cfg.key) return;
+  // --- Obter cliente Supabase dinâmico ---
+  const getClient = () => {
+    if (!hasConfig) throw new Error('Supabase não configurado');
+    return getSupabaseClient(config.url, config.key);
+  };
+
+  // --- Buscar backups na nuvem ---
+  const fetchCloudBackups = async () => {
+    if (!hasConfig) return;
     setLoadingCloud(true);
     try {
-      const res = await fetch(
-        `/api/backup/list?supabaseUrl=${encodeURIComponent(cfg.url)}&supabaseKey=${encodeURIComponent(cfg.key)}`
-      );
-      if (!res.ok) throw new Error('Erro ao listar backups');
-      const data = await res.json();
+      const client = getClient();
+      const { data, error } = await client
+        .from('backups')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
       setCloudBackups(data || []);
     } catch (e) {
-      toast.error('Erro ao listar backups na nuvem. Verifique suas credenciais Supabase.');
+      console.error(e);
+      toast.error('Erro ao buscar backups na nuvem');
     } finally {
       setLoadingCloud(false);
     }
   };
 
   useEffect(() => {
-    if (configSaved && config.url && config.key) {
-      fetchCloudBackups();
-    }
+    if (hasConfig) fetchCloudBackups();
   }, [configSaved]);
 
+  // --- Exportar backup local ---
   const handleExportLocal = () => {
     const json = exportData();
     const blob = new Blob([json], { type: 'application/json' });
@@ -87,6 +100,7 @@ const BackupPage = () => {
     toast.success('Backup exportado com sucesso');
   };
 
+  // --- Importar backup local ---
   const handleImportLocal = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -94,120 +108,95 @@ const BackupPage = () => {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const success = importData(text);
-      if (success) {
-        toast.success('Backup importado com sucesso');
-      } else {
-        toast.error('Arquivo de backup inválido');
-      }
+      if (success) toast.success('Backup importado com sucesso');
+      else toast.error('Arquivo de backup inválido');
     };
     reader.readAsText(file);
   };
 
+  // --- Salvar backup na nuvem ---
   const handleSaveCloud = async () => {
     if (!hasConfig) {
-      setShowConfig(true);
+      toast.error('Configure o Supabase antes de salvar');
       return;
     }
     setSavingCloud(true);
     try {
+      const client = getClient();
       const json = exportData();
       const name = `FORJA ${new Date().toLocaleString('pt-BR')}`;
-      const res = await fetch('/api/backup/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: json, name, supabaseUrl: config.url, supabaseKey: config.key }),
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'Erro ao salvar');
+
+      const { error } = await client.from('backups').insert([{ name, data: json }]);
+      if (error) throw error;
+
       toast.success('Backup salvo na nuvem');
       fetchCloudBackups();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao salvar backup na nuvem');
+      console.error(e);
+      toast.error('Erro ao salvar backup na nuvem');
     } finally {
       setSavingCloud(false);
     }
   };
 
+  // --- Carregar backup da nuvem ---
   const handleLoadCloud = async (backup: CloudBackup) => {
-    if (!window.confirm(`Restaurar backup "${backup.name}"? Os dados atuais serão substituídos.`)) return;
+    if (!window.confirm(`Restaurar backup "${backup.name}"? Os dados atuais serão substituídos.`))
+      return;
+
     try {
-      const res = await fetch(
-        `/api/backup/load/${backup.id}?supabaseUrl=${encodeURIComponent(config.url)}&supabaseKey=${encodeURIComponent(config.key)}`
-      );
-    let result: any = null;
-try {
-  const text = await res.text(); // pega como string
-  result = text ? JSON.parse(text) : null; // tenta converter se não vazio
-} catch (e) {
-  console.error('Erro ao parsear JSON do fetch:', e);
-  toast.error('Erro ao processar backup da nuvem');
-  return;
-}
-      if (!res.ok) throw new Error(result.error || 'Erro ao carregar');
-      const success = importData(result.data);
-      if (success) {
-        toast.success('Backup restaurado com sucesso');
-      } else {
-        toast.error('Dados do backup inválidos');
+      const client = getClient();
+      const { data, error } = await client
+        .from('backups')
+        .select('data')
+        .eq('id', backup.id)
+        .single();
+
+      if (error) throw error;
+
+      // Trata JSON vazio ou inválido
+      if (!data?.data) {
+        toast.error('Backup inválido ou vazio');
+        return;
       }
+
+      const success = importData(data.data);
+      if (success) toast.success('Backup restaurado com sucesso');
+      else toast.error('Erro ao restaurar backup');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao restaurar backup');
+      console.error(e);
+      toast.error('Erro ao restaurar backup');
     }
   };
 
   return (
     <div className="px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-mono text-sm font-medium">Backup</h2>
-        <button
-          onClick={() => setShowConfig(!showConfig)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-        >
-          <Settings className="w-3.5 h-3.5" />
-          Configurar Supabase
-        </button>
-      </div>
-
-      {/* Supabase Config Panel */}
-      {showConfig && (
-        <div className="card-surface neon-border rounded-lg p-4 mb-4 space-y-3">
+      <div className="space-y-4">
+        {/* Configuração */}
+        <div className="card-surface rounded-lg p-4 mb-4 space-y-3">
           <p className="font-mono text-xs text-primary">Configuração Supabase</p>
-          <p className="font-body text-[10px] text-muted-foreground">
-            Para usar backup na nuvem, crie um projeto em{' '}
-            <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-              supabase.com
-            </a>{' '}
-            e crie uma tabela chamada <code className="bg-muted px-1 rounded">backups</code> com as colunas:
-            <code className="bg-muted px-1 rounded ml-1">id (uuid, pk)</code>,{' '}
-            <code className="bg-muted px-1 rounded">name (text)</code>,{' '}
-            <code className="bg-muted px-1 rounded">data (text)</code>,{' '}
-            <code className="bg-muted px-1 rounded">created_at (timestamptz)</code>.
-          </p>
           <input
             type="text"
             placeholder="Project URL (https://xxx.supabase.co)"
             value={config.url}
-            onChange={e => setConfig(c => ({ ...c, url: e.target.value }))}
+            onChange={(e) => setConfig((c) => ({ ...c, url: e.target.value }))}
             className="w-full bg-muted/30 border border-border rounded px-3 py-2 text-xs font-mono focus:outline-none focus:border-primary"
           />
           <input
             type="password"
             placeholder="Anon Public Key"
             value={config.key}
-            onChange={e => setConfig(c => ({ ...c, key: e.target.value }))}
+            onChange={(e) => setConfig((c) => ({ ...c, key: e.target.value }))}
             className="w-full bg-muted/30 border border-border rounded px-3 py-2 text-xs font-mono focus:outline-none focus:border-primary"
           />
           <button
             onClick={saveConfig}
             className="flex items-center gap-2 px-4 py-2 bg-primary/20 border border-primary/40 rounded text-xs font-mono text-primary hover:bg-primary/30 transition-colors"
           >
-            <Check className="w-3.5 h-3.5" />
             Salvar Configuração
           </button>
         </div>
-      )}
 
-      <div className="space-y-4">
         {/* Local Export */}
         <button
           onClick={handleExportLocal}
@@ -243,57 +232,45 @@ try {
           )}
           <div>
             <p className="font-mono text-sm text-foreground">Salvar Backup na Nuvem</p>
-            <p className="font-body text-[10px] text-muted-foreground">
-              {hasConfig ? 'Salvar dados no Supabase' : 'Configure o Supabase para usar'}
-            </p>
+            <p className="font-body text-[10px] text-muted-foreground">Salvar dados no Supabase</p>
           </div>
         </button>
 
         {/* Cloud Backups List */}
-        {hasConfig && (
-          <div className="card-surface rounded-lg border border-border/40 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-              <p className="font-mono text-xs text-foreground">Backups na Nuvem</p>
-              <button
-                onClick={() => fetchCloudBackups()}
-                disabled={loadingCloud}
-                className="text-[10px] text-primary hover:underline"
-              >
-                {loadingCloud ? 'Carregando...' : 'Atualizar'}
-              </button>
-            </div>
-
-            {loadingCloud ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-5 h-5 text-primary animate-spin" />
-              </div>
-            ) : cloudBackups.length === 0 ? (
-              <div className="px-4 py-4 text-center">
-                <p className="font-body text-[10px] text-muted-foreground">Nenhum backup na nuvem ainda.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border/30">
-                {cloudBackups.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between px-4 py-3">
-                    <div>
-                      <p className="font-mono text-xs text-foreground">{b.name}</p>
-                      <p className="font-body text-[10px] text-muted-foreground">
-                        {new Date(b.created_at).toLocaleString('pt-BR')}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleLoadCloud(b)}
-                      className="flex items-center gap-1 text-[10px] text-primary hover:underline"
-                    >
-                      <CloudDownload className="w-3.5 h-3.5" />
-                      Restaurar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="card-surface rounded-lg border border-border/40 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+            <p className="font-mono text-xs text-foreground">Backups na Nuvem</p>
+            <button onClick={fetchCloudBackups} disabled={loadingCloud} className="text-[10px] text-primary hover:underline">
+              {loadingCloud ? 'Carregando...' : 'Atualizar'}
+            </button>
           </div>
-        )}
+
+          {loadingCloud ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            </div>
+          ) : cloudBackups.length === 0 ? (
+            <div className="px-4 py-4 text-center">
+              <p className="font-body text-[10px] text-muted-foreground">Nenhum backup na nuvem ainda.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border/30">
+              {cloudBackups.map((b) => (
+                <div key={b.id} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="font-mono text-xs text-foreground">{b.name}</p>
+                    <p className="font-body text-[10px] text-muted-foreground">
+                      {new Date(b.created_at).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                  <button onClick={() => handleLoadCloud(b)} className="flex items-center gap-1 text-[10px] text-primary hover:underline">
+                    <CloudDownload className="w-3.5 h-3.5" /> Restaurar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Info */}
         <div className="card-surface rounded-lg p-4 flex items-start gap-3 border border-status-partial/30">
