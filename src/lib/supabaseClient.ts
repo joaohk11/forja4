@@ -1,30 +1,21 @@
 // src/lib/supabaseClient.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-let supabase: SupabaseClient;
+let supabase: SupabaseClient | null = null;
 
-// --- Função para criar ou atualizar o cliente Supabase ---
-export const getSupabaseClient = (url?: string, key?: string) => {
-  if (!url || !key) {
-    // Se já existe, retorna o cliente existente
-    if (!supabase) throw new Error('Supabase não configurado');
-    return supabase;
+/**
+ * Cria ou retorna o cliente Supabase com URL e chave passadas.
+ * Se você já tiver um cliente global, ele será reutilizado.
+ */
+export const getSupabaseClient = (url: string, key: string) => {
+  if (!url || !key) throw new Error('Supabase URL e Key são obrigatórios');
+  
+  if (!supabase) {
+    supabase = createClient(url, key, {
+      auth: { persistSession: false }, // não persiste sessão, ideal para backup
+      global: { headers: { 'X-Client-Info': 'forja-backup-app' } },
+    });
   }
 
-  // Cria um novo cliente
-  supabase = createClient(url, key);
   return supabase;
 };
-
-// --- Cliente padrão, carregado do localStorage se existir ---
-try {
-  const savedConfig = localStorage.getItem('supabase_config');
-  if (savedConfig) {
-    const { url, key } = JSON.parse(savedConfig);
-    if (url && key) supabase = createClient(url, key);
-  }
-} catch {
-  // Falha silenciosa, usuário ainda precisa configurar
-}
-
-export { supabase };
