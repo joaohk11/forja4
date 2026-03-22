@@ -134,7 +134,15 @@ const BackupPage = () => {
       const res = await fetch(
         `/api/backup/load/${backup.id}?supabaseUrl=${encodeURIComponent(config.url)}&supabaseKey=${encodeURIComponent(config.key)}`
       );
-      const result = await res.json();
+    let result: any = null;
+try {
+  const text = await res.text(); // pega como string
+  result = text ? JSON.parse(text) : null; // tenta converter se não vazio
+} catch (e) {
+  console.error('Erro ao parsear JSON do fetch:', e);
+  toast.error('Erro ao processar backup da nuvem');
+  return;
+}
       if (!res.ok) throw new Error(result.error || 'Erro ao carregar');
       const success = importData(result.data);
       if (success) {
