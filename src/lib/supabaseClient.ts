@@ -1,11 +1,30 @@
+// src/lib/supabaseClient.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Certifique-se de ter essas variáveis no Vercel ou .env.local
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+let supabase: SupabaseClient;
 
-// Cliente Supabase principal
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
+// --- Função para criar ou atualizar o cliente Supabase ---
+export const getSupabaseClient = (url?: string, key?: string) => {
+  if (!url || !key) {
+    // Se já existe, retorna o cliente existente
+    if (!supabase) throw new Error('Supabase não configurado');
+    return supabase;
+  }
 
-// Função para compatibilidade com arquivos que usam getSupabaseClient
-export const getSupabaseClient = () => supabase;
+  // Cria um novo cliente
+  supabase = createClient(url, key);
+  return supabase;
+};
+
+// --- Cliente padrão, carregado do localStorage se existir ---
+try {
+  const savedConfig = localStorage.getItem('supabase_config');
+  if (savedConfig) {
+    const { url, key } = JSON.parse(savedConfig);
+    if (url && key) supabase = createClient(url, key);
+  }
+} catch {
+  // Falha silenciosa, usuário ainda precisa configurar
+}
+
+export { supabase };
