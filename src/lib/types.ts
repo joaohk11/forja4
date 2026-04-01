@@ -85,7 +85,6 @@ export interface TrainingModule {
   type: ModuleType;
   blockType: BlockType;
   description: string;
-  fundamento?: string;
   duration: number;
   status: ModuleStatus;
   observation: string;
@@ -102,7 +101,6 @@ export interface Training {
   duration: number;
   modules: TrainingModule[];
   status: TrainingStatus;
-  focusTag?: string;
   isFavorite?: boolean;
   attendance?: Record<string, 'presente' | 'ausente'>;
   rating?: TrainingRating;

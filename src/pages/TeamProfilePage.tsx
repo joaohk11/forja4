@@ -1,31 +1,15 @@
 import { useState, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/lib/context';
-import { RadarChart } from '@/components/RadarChart';
-import {
-  PHYSICAL_ATTRIBUTES, TECHNICAL_ATTRIBUTES,
-  PHYSICAL_ATTRIBUTE_LABELS, TECHNICAL_ATTRIBUTE_LABELS,
-  getAthleteAttributeScore,
-} from '@/lib/types';
-import { Camera, Trash2, Users, Ruler, Clock, ImagePlus, Edit2, ArrowLeft, X } from 'lucide-react';
-
-function scoreColor(score: number): string {
-  if (score > 80) return 'text-green-400';
-  if (score < 50 && score > 0) return 'text-red-400';
-  return 'text-foreground';
-}
-
-type RadarTab = 'tecnico' | 'fisico';
+import { POSITION_LABELS } from '@/lib/types';
+import { TeamRadars } from '@/components/TeamRadars';
+import { Camera, Trash2, Users, Ruler, Clock, User, Plus, Edit2, ArrowLeft, X, ImagePlus } from 'lucide-react';
 
 const TeamProfilePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data, updateTeamName, updateTeamPhoto } = useApp();
+  const { data, updateTeamName, updateTeamPhoto, deleteAthlete } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [editingName, setEditingName] = useState(false);
-  const [nameValue, setNameValue] = useState('');
-  const [activeTab, setActiveTab] = useState<RadarTab>('tecnico');
 
   const team = data.teams.find(t => t.id === id);
   const teamAthletes = useMemo(
@@ -33,33 +17,8 @@ const TeamProfilePage = () => {
     [data.athletes, id]
   );
 
-  const physicalAvg = useMemo(() => {
-    if (teamAthletes.length === 0) return PHYSICAL_ATTRIBUTES.map(() => 0);
-    return PHYSICAL_ATTRIBUTES.map(attr => {
-      const scores = teamAthletes.map(a =>
-        getAthleteAttributeScore(a.id, attr, data.evalTests || [], data.evalResults || [])
-      );
-      return scores.reduce((s, v) => s + v, 0) / scores.length;
-    });
-  }, [teamAthletes, data.evalTests, data.evalResults]);
-
-  const technicalAvg = useMemo(() => {
-    if (teamAthletes.length === 0) return TECHNICAL_ATTRIBUTES.map(() => 0);
-    return TECHNICAL_ATTRIBUTES.map(attr => {
-      const scores = teamAthletes.map(a =>
-        getAthleteAttributeScore(a.id, attr, data.evalTests || [], data.evalResults || [])
-      );
-      return scores.reduce((s, v) => s + v, 0) / scores.length;
-    });
-  }, [teamAthletes, data.evalTests, data.evalResults]);
-
-  const avgHeight = teamAthletes.length
-    ? (teamAthletes.reduce((s, a) => s + (parseFloat(a.height) || 0), 0) / teamAthletes.length).toFixed(1)
-    : null;
-
-  const avgAge = teamAthletes.length
-    ? (teamAthletes.reduce((s, a) => s + a.age, 0) / teamAthletes.length).toFixed(1)
-    : null;
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(team?.name ?? '');
 
   if (!team) {
     return (
@@ -69,41 +28,44 @@ const TeamProfilePage = () => {
     );
   }
 
+  const avgHeight = teamAthletes.length
+    ? (teamAthletes.reduce((s, a) => s + (parseFloat(a.height) || 0), 0) / teamAthletes.length).toFixed(1)
+    : null;
+
+  const avgAge = teamAthletes.length
+    ? (teamAthletes.reduce((s, a) => s + a.age, 0) / teamAthletes.length).toFixed(1)
+    : null;
+
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => updateTeamPhoto(team.id, ev.target?.result as string);
+    reader.onload = (ev) => {
+      updateTeamPhoto(team.id, ev.target?.result as string);
+    };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
   const handleNameSave = () => {
-    if (nameValue.trim()) updateTeamName(team.id, nameValue.trim());
-    else setNameValue(team.name);
+    if (nameValue.trim()) {
+      updateTeamName(team.id, nameValue.trim());
+    } else {
+      setNameValue(team.name);
+    }
     setEditingName(false);
   };
 
-  const physicalLabels = PHYSICAL_ATTRIBUTES.map(a => PHYSICAL_ATTRIBUTE_LABELS[a]);
-  const technicalLabels = TECHNICAL_ATTRIBUTES.map(a => TECHNICAL_ATTRIBUTE_LABELS[a]);
-
-  const currentLabels  = activeTab === 'tecnico' ? technicalLabels  : physicalLabels;
-  const currentValues  = activeTab === 'tecnico' ? technicalAvg     : physicalAvg;
-  const currentAttrs   = activeTab === 'tecnico' ? TECHNICAL_ATTRIBUTES : PHYSICAL_ATTRIBUTES;
-  const currentLabelMap = activeTab === 'tecnico' ? TECHNICAL_ATTRIBUTE_LABELS : PHYSICAL_ATTRIBUTE_LABELS;
-
-  const hasData = teamAthletes.length > 0 && currentValues.some(v => v > 0);
-
   return (
     <div className="pb-8">
-      {/* Back */}
+      {/* Header */}
       <div className="px-4 pt-4 pb-2">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-muted-foreground hover:text-primary font-mono text-xs transition-colors">
           <ArrowLeft className="w-4 h-4" strokeWidth={1.5} /> Voltar
         </button>
       </div>
 
-      {/* Cover / Team Photo */}
+      {/* Cover / Team Photo Area */}
       <div className="relative mx-4 rounded-xl overflow-hidden neon-border card-surface">
         <div className="h-44 flex items-center justify-center bg-muted/30 relative group">
           {team.photo ? (
@@ -162,87 +124,75 @@ const TeamProfilePage = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mx-4 mt-4">
-        <StatCard icon={Users} label="Atletas"     value={String(teamAthletes.length)} />
-        <StatCard icon={Ruler} label="Alt. Média"  value={avgHeight ? `${avgHeight} cm` : '—'} />
-        <StatCard icon={Clock} label="Idade Média" value={avgAge ? `${avgAge} a` : '—'} />
+      {teamAthletes.length > 0 ? (
+        <div className="grid grid-cols-3 gap-3 mx-4 mt-4">
+          <StatCard icon={Users} label="Atletas" value={String(teamAthletes.length)} />
+          <StatCard icon={Ruler} label="Alt. Média" value={avgHeight ? `${avgHeight} cm` : '—'} />
+          <StatCard icon={Clock} label="Idade Média" value={avgAge ? `${avgAge} anos` : '—'} />
+        </div>
+      ) : (
+        <div className="mx-4 mt-4 card-surface neon-border rounded-lg p-6 text-center">
+          <p className="text-muted-foreground font-body text-sm">Nenhum atleta cadastrado neste time</p>
+        </div>
+      )}
+
+      {/* Athletes List */}
+      <div className="mx-4 mt-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-mono text-sm font-medium text-foreground">Atletas ({teamAthletes.length}/25)</h3>
+          {teamAthletes.length < 25 && (
+            <button
+              onClick={() => navigate('/atletas')}
+              className="flex items-center gap-1 text-primary font-mono text-xs hover:neon-text transition-all"
+            >
+              <Plus className="w-4 h-4" strokeWidth={1.5} /> Adicionar Atleta
+            </button>
+          )}
+        </div>
+        <div className="space-y-2">
+          {teamAthletes.map(a => (
+            <div
+              key={a.id}
+              className="card-surface neon-border rounded-md p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/20 transition-colors"
+              onClick={() => navigate(`/atleta/${a.id}`)}
+            >
+              <div className="w-10 h-12 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                {a.photo ? (
+                  <img src={a.photo} alt={a.name} className="w-full h-full object-cover rounded" />
+                ) : (
+                  <User className="w-5 h-5 text-muted-foreground" strokeWidth={1.5} />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-primary text-xs">#{a.number}</span>
+                  <span className="font-mono text-sm text-foreground truncate">{a.name}</span>
+                </div>
+                <p className="font-body text-[10px] text-muted-foreground">
+                  {POSITION_LABELS[a.position]} · {a.height}cm · {a.age} anos
+                </p>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteAthlete(a.id); }}
+                className="p-1.5 text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="w-4 h-4" strokeWidth={1.5} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Radar Section */}
+      {/* Team Radars */}
       <div className="mx-4 mt-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-mono text-sm font-medium text-foreground">Radar do Time</h3>
-
-          {/* Tab switcher */}
-          <div className="flex bg-muted/30 rounded-lg p-0.5 border border-border/40">
-            {(['tecnico', 'fisico'] as RadarTab[]).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1 rounded-md font-mono text-[10px] uppercase tracking-wider transition-all ${
-                  activeTab === tab
-                    ? 'bg-primary/20 text-primary border border-primary/30'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab === 'tecnico' ? 'Técnico' : 'Físico'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {!hasData ? (
-          <div className="card-surface neon-border rounded-xl p-8 text-center">
-            <p className="text-muted-foreground font-body text-sm">Sem dados de avaliação</p>
-            <p className="text-muted-foreground font-mono text-[10px] mt-1">Cadastre atletas e realize avaliações</p>
-          </div>
-        ) : (
-          <div className="card-surface neon-border rounded-xl p-4">
-            {/* Big centered radar */}
-            <div className="flex justify-center">
-              <RadarChart
-                labels={currentLabels}
-                values={currentValues}
-                size={280}
-              />
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-border/30 my-4" />
-
-            {/* Score list */}
-            <div className="space-y-2">
-              {currentAttrs.map((attr, i) => {
-                const score = Math.round(currentValues[i]);
-                return (
-                  <div key={attr} className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-muted-foreground flex-1">
-                      {currentLabelMap[attr as keyof typeof currentLabelMap]}
-                    </span>
-                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{
-                          width: `${score}%`,
-                          boxShadow: '0 0 4px hsl(var(--primary) / 0.4)',
-                        }}
-                      />
-                    </div>
-                    <span className={`font-mono text-sm font-bold w-8 text-right ${scoreColor(currentValues[i])}`}>
-                      {score || '—'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <h3 className="font-mono text-sm font-medium text-foreground mb-3">Radar do Time</h3>
+        <TeamRadars teamId={team.id} size={160} />
       </div>
     </div>
   );
 };
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function StatCard({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
     <div className="card-surface neon-border rounded-lg p-3 text-center">
       <Icon className="w-5 h-5 text-primary mx-auto mb-1" strokeWidth={1.5} />
