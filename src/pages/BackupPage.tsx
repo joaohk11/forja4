@@ -213,7 +213,7 @@ const BackupPage = () => {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="font-mono text-xs text-foreground truncate">{backup.name}</p>
+                          <p className="font-mono text-xs text-foreground truncate">{backup.Name}</p>
                           <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
                             {formatDate(backup.Created_at)}
                           </p>

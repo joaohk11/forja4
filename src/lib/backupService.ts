@@ -2,8 +2,8 @@ import { supabase, supabaseConfigured } from './supabaseClient';
 
 export interface CloudBackup {
   id: string;
-  name: string;
-  data: string;
+  Name: string;
+  Data: string;
   Created_at: string;
 }
 
@@ -15,9 +15,10 @@ function assertConfigured() {
 
 export async function saveBackup(data: unknown): Promise<void> {
   assertConfigured();
-  const name = `FORJA - ${new Date().toLocaleString('pt-BR')}`;
+  const Name = `FORJA - ${new Date().toLocaleString('pt-BR')}`;
+  const Created_at = new Date().toISOString();
   const { error } = await supabase!.from('backups').insert([
-    { name, data: JSON.stringify(data) },
+    { Name, Data: JSON.stringify(data), Created_at },
   ]);
   if (error) {
     console.error('[backupService] saveBackup error:', error);
@@ -49,7 +50,7 @@ export async function restoreBackup(id: string): Promise<unknown> {
     console.error('[backupService] restoreBackup error:', error);
     throw error;
   }
-  return JSON.parse((data as CloudBackup).data);
+  return JSON.parse((data as CloudBackup).Data);
 }
 
 export async function deleteBackup(id: string): Promise<void> {
