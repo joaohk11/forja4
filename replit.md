@@ -84,6 +84,13 @@ npm run dev    # Start dev server on port 5000
 npm run build  # Production build
 ```
 
+## Cloud Backup (Supabase)
+- Client: `src/lib/supabaseClient.ts` — initialised with `SUPABASE_URL` + `SUPABASE_ANON_KEY` (injected at build time via `vite.config.ts` define)
+- Service: `src/lib/backupService.ts` — `saveBackup`, `getBackups`, `restoreBackup`, `deleteBackup`
+- Page: `src/pages/BackupPage.tsx` — local export/import + full cloud backup UI
+- Supabase table `backups`: columns `id (uuid pk)`, `name (text)`, `data (text)`, `Created_at (timestamptz default now())`
+- RLS required: SELECT / INSERT / DELETE on anon role
+
 ## Environment Variables
-- `VITE_SUPABASE_URL` — Supabase project URL
-- `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase anon key
+- `SUPABASE_URL` — Supabase project URL (injected as `VITE_SUPABASE_URL` at build time)
+- `SUPABASE_ANON_KEY` — Supabase anon key (injected as `VITE_SUPABASE_ANON_KEY` at build time)
