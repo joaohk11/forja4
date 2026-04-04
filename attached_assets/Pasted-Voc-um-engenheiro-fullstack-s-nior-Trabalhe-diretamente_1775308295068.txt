@@ -1,0 +1,163 @@
+Você é um engenheiro fullstack sênior. Trabalhe diretamente no projeto atual sem quebrar nenhuma funcionalidade existente.
+
+Sua missão é IMPLEMENTAR COMPLETAMENTE a integração com Supabase para o sistema de BACKUP do app FORJA.
+
+⚠️ REGRAS:
+- NÃO alterar layout/UI existente
+- NÃO remover código existente
+- NÃO criar inputs de configuração
+- NÃO usar localStorage para Supabase
+- Usar apenas variáveis de ambiente
+- Código limpo e funcional
+
+---
+
+# ETAPA 1 — DEPENDÊNCIA
+
+Instale:
+@supabase/supabase-js
+
+---
+
+# ETAPA 2 — CLIENTE SUPABASE
+
+Criar arquivo:
+/src/lib/supabaseClient.ts
+
+Conteúdo:
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.SUPABASE_URL as string;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY as string;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Supabase environment variables missing');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+---
+
+# ETAPA 3 — SERVIÇO DE BACKUP
+
+Criar arquivo:
+/src/lib/backupService.ts
+
+Conteúdo:
+
+import { supabase } from './supabaseClient';
+
+export async function saveBackup(data: any) {
+  const name = `FORJA - ${new Date().toLocaleString()}`;
+
+  const { error } = await supabase.from('backups').insert([
+    {
+      name,
+      data: JSON.stringify(data),
+    },
+  ]);
+
+  if (error) throw error;
+}
+
+export async function getBackups() {
+  const { data, error } = await supabase
+    .from('backups')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function restoreBackup(id: string) {
+  const { data, error } = await supabase
+    .from('backups')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+  return JSON.parse(data.data);
+}
+
+export async function deleteBackup(id: string) {
+  const { error } = await supabase
+    .from('backups')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+---
+
+# ETAPA 4 — INTEGRAÇÃO SIMPLES NA UI
+
+Na página de Backup existente:
+
+1. Importar:
+import { saveBackup, getBackups, restoreBackup, deleteBackup } from '@/lib/backupService';
+
+2. Adicionar:
+- Botão "Salvar Backup na Nuvem"
+- Lista de backups
+- Botão "Restaurar"
+- Botão "Excluir"
+
+3. NÃO alterar layout atual — apenas encaixar funcionalidade
+
+---
+
+# ETAPA 5 — TRATAMENTO DE ERRO
+
+Adicionar:
+- console.error em falhas
+- try/catch nas chamadas
+
+---
+
+# ETAPA 6 — SUPABASE (IMPORTANTE)
+
+Garantir que a tabela "backups" exista com:
+
+- id (uuid, primary key, default uuid_generate_v4())
+- name (text)
+- data (text)
+- created_at (timestamp, default now())
+
+---
+
+# ETAPA 7 — RLS
+
+Se estiver ativo, criar policies permitindo:
+
+- SELECT
+- INSERT
+- DELETE
+
+para anon/public
+
+---
+
+# ETAPA 8 — VALIDAÇÃO
+
+Testar:
+
+- Salvar backup
+- Listar backups
+- Restaurar backup
+- Excluir backup
+
+---
+
+# RESULTADO FINAL
+
+O app deve:
+- Salvar backups na nuvem
+- Listar corretamente
+- Restaurar dados
+- Funcionar sem quebrar nada existente
+
+Se algo quebrar, corrigir automaticamente mantendo o comportamento original do app.
