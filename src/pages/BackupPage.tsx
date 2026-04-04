@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/lib/context';
 import { saveBackup, getBackups, restoreBackup, deleteBackup, CloudBackup } from '@/lib/backupService';
-import { isSupabaseConfigured } from '@/lib/supabaseClient';
 import {
   Download,
   Upload,
@@ -22,7 +21,6 @@ const BackupPage = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchCloudBackups = async () => {
-    if (!isSupabaseConfigured) return;
     setLoadingCloud(true);
     try {
       const data = await getBackups();
@@ -65,10 +63,6 @@ const BackupPage = () => {
   };
 
   const handleSaveCloud = async () => {
-    if (!isSupabaseConfigured) {
-      toast.error('Supabase não configurado');
-      return;
-    }
     setSavingCloud(true);
     try {
       const data = JSON.parse(exportData());
@@ -77,7 +71,7 @@ const BackupPage = () => {
       fetchCloudBackups();
     } catch (e) {
       console.error('handleSaveCloud:', e);
-      toast.error('Erro ao salvar backup na nuvem');
+      toast.error('Erro ao salvar backup: ' + (e instanceof Error ? e.message : ''));
     } finally {
       setSavingCloud(false);
     }
@@ -93,7 +87,7 @@ const BackupPage = () => {
       else toast.error('Erro ao restaurar backup');
     } catch (e) {
       console.error('handleRestoreCloud:', e);
-      toast.error('Erro ao restaurar backup');
+      toast.error('Erro ao restaurar backup: ' + (e instanceof Error ? e.message : ''));
     }
   };
 
@@ -106,7 +100,7 @@ const BackupPage = () => {
       setCloudBackups(prev => prev.filter(b => b.id !== backup.id));
     } catch (e) {
       console.error('handleDeleteCloud:', e);
-      toast.error('Erro ao excluir backup');
+      toast.error('Erro ao excluir backup: ' + (e instanceof Error ? e.message : ''));
     } finally {
       setDeletingId(null);
     }
@@ -135,7 +129,7 @@ const BackupPage = () => {
 
         <button
           onClick={handleSaveCloud}
-          disabled={savingCloud || !isSupabaseConfigured}
+          disabled={savingCloud}
           className="w-full card-surface neon-border rounded-lg p-4 flex items-center gap-4 text-left hover:neon-glow transition-all disabled:opacity-60"
         >
           {savingCloud
@@ -149,52 +143,50 @@ const BackupPage = () => {
       </div>
 
       {/* Lista de backups na nuvem */}
-      {isSupabaseConfigured && (
-        <div className="space-y-2 pt-2">
-          <div className="flex items-center justify-between">
-            <p className="font-mono text-xs text-primary">Backups na Nuvem</p>
-            {loadingCloud && <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />}
-          </div>
-
-          {!loadingCloud && cloudBackups.length === 0 && (
-            <p className="font-mono text-[11px] text-muted-foreground text-center py-4">
-              Nenhum backup encontrado
-            </p>
-          )}
-
-          {cloudBackups.map(backup => (
-            <div
-              key={backup.id}
-              className="card-surface rounded-lg p-3 flex items-center justify-between gap-3"
-            >
-              <div className="min-w-0">
-                <p className="font-mono text-xs text-foreground truncate">{backup.name}</p>
-                <p className="font-body text-[10px] text-muted-foreground">
-                  {new Date(backup.Created_at).toLocaleString('pt-BR')}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleRestoreCloud(backup)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 border border-primary/30 rounded text-[10px] font-mono text-primary hover:bg-primary/20 transition-colors"
-                >
-                  <CloudDownload className="w-3.5 h-3.5" />
-                  Restaurar
-                </button>
-                <button
-                  onClick={() => handleDeleteCloud(backup)}
-                  disabled={deletingId === backup.id}
-                  className="flex items-center justify-center w-7 h-7 bg-red-500/10 border border-red-500/30 rounded text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
-                >
-                  {deletingId === backup.id
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    : <Trash2 className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-          ))}
+      <div className="space-y-2 pt-2">
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-xs text-primary">Backups na Nuvem</p>
+          {loadingCloud && <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />}
         </div>
-      )}
+
+        {!loadingCloud && cloudBackups.length === 0 && (
+          <p className="font-mono text-[11px] text-muted-foreground text-center py-4">
+            Nenhum backup encontrado
+          </p>
+        )}
+
+        {cloudBackups.map(backup => (
+          <div
+            key={backup.id}
+            className="card-surface rounded-lg p-3 flex items-center justify-between gap-3"
+          >
+            <div className="min-w-0">
+              <p className="font-mono text-xs text-foreground truncate">{backup.name}</p>
+              <p className="font-body text-[10px] text-muted-foreground">
+                {new Date(backup.Created_at).toLocaleString('pt-BR')}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => handleRestoreCloud(backup)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 border border-primary/30 rounded text-[10px] font-mono text-primary hover:bg-primary/20 transition-colors"
+              >
+                <CloudDownload className="w-3.5 h-3.5" />
+                Restaurar
+              </button>
+              <button
+                onClick={() => handleDeleteCloud(backup)}
+                disabled={deletingId === backup.id}
+                className="flex items-center justify-center w-7 h-7 bg-red-500/10 border border-red-500/30 rounded text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+              >
+                {deletingId === backup.id
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Trash2 className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
