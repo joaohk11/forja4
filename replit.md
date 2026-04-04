@@ -29,10 +29,12 @@ This starts both the Express server (port 3000) and the Vite dev server (port 50
 ## Environment Variables / Secrets
 
 - `GEMINI_API_KEY` — Required for the FORJA AI coach feature (Gemini API key from https://aistudio.google.com/apikey)
+- `VITE_SUPABASE_URL` — Optional (not used for backups currently)
+- `VITE_SUPABASE_ANON_KEY` — Optional (not used for backups currently)
 
-## Cloud Backup (Optional)
+## Cloud Backup
 
-The Backup page supports optional Supabase cloud backup. Users can provide their own Supabase project URL and anon key directly in the UI — no server-side config needed.
+Backups are stored in the **Replit PostgreSQL cloud database** (`backups` table). All backup operations (save, list, restore, delete) go through the Express server at `/api/backup/*` — never directly from the browser. The database is cloud-hosted and persists permanently.
 
 ## Notes
 

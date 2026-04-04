@@ -163,7 +163,7 @@ const BackupPage = () => {
             <div className="min-w-0">
               <p className="font-mono text-xs text-foreground truncate">{backup.name}</p>
               <p className="font-body text-[10px] text-muted-foreground">
-                {new Date(backup.Created_at).toLocaleString('pt-BR')}
+                {new Date(backup.created_at).toLocaleString('pt-BR')}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

@@ -2,7 +2,7 @@ export interface CloudBackup {
   id: string;
   name: string;
   data?: string;
-  Created_at: string;
+  created_at: string;
 }
 
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
