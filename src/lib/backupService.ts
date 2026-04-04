@@ -12,7 +12,22 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  const json = await res.json();
+  // Read as text first — some responses may have an empty body
+  const text = await res.text();
+
+  if (!text || text.trim() === '') {
+    if (res.ok) return {} as T;
+    throw new Error(`Erro ${res.status}`);
+  }
+
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    if (res.ok) return {} as T;
+    throw new Error(`Erro ${res.status}: resposta inválida do servidor`);
+  }
+
   if (!res.ok) throw new Error(json?.detail || json?.error || `Erro ${res.status}`);
   return json as T;
 }
