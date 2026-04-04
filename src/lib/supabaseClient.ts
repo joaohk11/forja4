@@ -1,9 +1,8 @@
-// src/lib/supabaseClient.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-/**
- * Retorna um cliente Supabase seguro para backup
- */
+export const isSupabaseConfigured = false;
+export const supabase: SupabaseClient | null = null;
+
 export const getSupabaseClient = (url: string, key: string): SupabaseClient => {
   if (!url || !key) throw new Error('Supabase URL e Key são obrigatórios');
   return createClient(url, key, {

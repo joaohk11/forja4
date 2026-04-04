@@ -1,4 +1,3 @@
-import { getSupabaseClient } from '@/lib/supabaseClient';
 import type { AccessLinkType, AccessLinkRole } from '@/lib/types';
 
 export interface AccessLink {
@@ -11,36 +10,16 @@ export interface AccessLink {
 }
 
 export const accessService = {
-  async validateToken(token: string): Promise<AccessLink | null> {
-    const sb = getSupabaseClient();
-    if (!sb) return null;
-    const { data, error } = await sb
-      .from('access_links')
-      .select('*')
-      .eq('token', token)
-      .single();
-    if (error) return null;
-    return data;
+  async validateToken(_token: string): Promise<AccessLink | null> {
+    return null;
   },
 
-  async createLink(link: Omit<AccessLink, 'id' | 'created_at'>): Promise<AccessLink | null> {
-    const sb = getSupabaseClient();
-    if (!sb) return null;
-    const { data, error } = await sb
-      .from('access_links')
-      .insert(link)
-      .select()
-      .single();
-    if (error) { console.error('accessService.createLink:', error); return null; }
-    return data;
+  async createLink(_link: Omit<AccessLink, 'id' | 'created_at'>): Promise<AccessLink | null> {
+    return null;
   },
 
-  async revokeToken(token: string): Promise<boolean> {
-    const sb = getSupabaseClient();
-    if (!sb) return false;
-    const { error } = await sb.from('access_links').delete().eq('token', token);
-    if (error) { console.error('accessService.revokeToken:', error); return false; }
-    return true;
+  async revokeToken(_token: string): Promise<boolean> {
+    return false;
   },
 
   generateToken(): string {
@@ -49,7 +28,6 @@ export const accessService = {
   },
 };
 
-// URL token helper — reads from current URL search params
 export function getTokenFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   const params = new URLSearchParams(window.location.search);

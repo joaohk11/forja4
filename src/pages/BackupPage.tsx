@@ -12,7 +12,6 @@ import {
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
 
 interface CloudBackup {
   id: string;
@@ -126,7 +125,7 @@ const BackupPage = () => {
       const name = `FORJA ${new Date().toLocaleString('pt-BR')}`;
 
       const { error } = await client.from('backups').insert([{
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         name,
         data: json,
         created_at: new Date().toISOString()
